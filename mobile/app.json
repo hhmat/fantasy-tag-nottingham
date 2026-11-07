@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Fantasy Tag Nottingham",
+    "slug": "fantasy-tag-nottingham",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "fantasytag",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#0B3D2E",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0B3D2E"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fantasytag.nottingham"
+    },
+    "android": {
+      "package": "com.fantasytag.nottingham",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B3D2E"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
