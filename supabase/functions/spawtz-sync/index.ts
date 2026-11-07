@@ -386,8 +386,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  }
-
   // Record the run for the admin dashboard's sync history
   await supabase.from("sync_log").insert({
     triggered_by: callerId,
