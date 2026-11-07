@@ -32,13 +32,14 @@ insert into public.gameweeks (id, name, deadline, is_finished) values
   (7,  'Gameweek 7',   '2026-10-19 18:30:00+01', true),
   (8,  'Gameweek 8',   '2026-10-26 18:30:00+00', true),
   (9,  'Gameweek 9',   '2026-11-02 18:30:00+00', true),
-  (10, 'Finals Night', '2026-11-09 18:30:00+00', false);
+  (10, 'Finals Night', '2026-11-09 18:30:00+00', false)
+on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Teams (12)
 -- ---------------------------------------------------------------------------
 insert into public.teams (name, short_name, primary_color, secondary_color) values
-  ('Ay'up Me Tag!',          'AMT', '#0B3D91', '#FFFFFF'),
+  ('Ay''up Me Tag!',         'AMT', '#0B3D91', '#FFFFFF'),
   ('Castle Ruck',            'CRK', '#4A148C', '#FFFFFF'),
   ('County Tagpies',         'CTP', '#212121', '#FFFFFF'),
   ('Mull of Kintag',         'MOK', '#1B5E20', '#FFD54F'),
@@ -49,7 +50,8 @@ insert into public.teams (name, short_name, primary_color, secondary_color) valu
   ('Tagville and Dean',      'TVD', '#37474F', '#FF6F00'),
   ('Tags in Tights',         'TIT', '#F9A825', '#212121'),
   ('The Expletive Counters', 'TEC', '#283593', '#FF5252'),
-  ('The Sherry Maggers',     'TSM', '#004D40', '#B2DFDB');
+  ('The Sherry Maggers',     'TSM', '#004D40', '#B2DFDB')
+on conflict (name) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Real players from the Spawtz POTM statistics, with award counts.
@@ -115,7 +117,13 @@ insert into public.players (team_id, first_name, last_name, position, price)
 select t.id, rp.first_name, rp.last_name, 'Utility',
        least(10.0, 6.5 + rp.pom * 0.5)
   from _real_players rp
-  join public.teams t on t.short_name = rp.team_short;
+  join public.teams t on t.short_name = rp.team_short
+ where not exists (           -- idempotent: skip players already seeded
+   select 1 from public.players p
+    where p.team_id = t.id
+      and p.first_name = rp.first_name
+      and p.last_name  = rp.last_name
+ );
 
 -- ---------------------------------------------------------------------------
 -- Generated players fill the remaining roster spots (13 per team, 156 total)
@@ -249,7 +257,13 @@ insert into public.fixtures
 select f.gw, h.id, a.id, f.kickoff, f.venue, f.hs, f.aw, f.status
   from _fx f
   join public.teams h on h.short_name = f.home
-  join public.teams a on a.short_name = f.away;
+  join public.teams a on a.short_name = f.away
+ where not exists (           -- idempotent: skip fixtures already seeded
+   select 1 from public.fixtures f2
+    where f2.gameweek_id  = f.gw
+      and f2.home_team_id = h.id
+      and f2.away_team_id = a.id
+ );
 
 drop table _fx;
 
@@ -289,6 +303,7 @@ select fx.id,
        or (fx.away_team_id = rp.team_id and fx.away_score > fx.home_score),
        true
   from rp
-  join fx on fx.team_id = rp.team_id;
+  join fx on fx.team_id = rp.team_id
+on conflict (fixture_id, player_id) do nothing;
 
 drop table _real_players;
