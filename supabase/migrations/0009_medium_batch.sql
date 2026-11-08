@@ -42,7 +42,8 @@ $$;
 -- ---------------------------------------------------------------------------
 -- M1 — visibility lock on squads, transfers, captain picks
 -- ---------------------------------------------------------------------------
-drop policy "squads readable by all" on public.fantasy_team_players;
+drop policy if exists "squads readable by all" on public.fantasy_team_players;
+drop policy if exists "squads visible after lock or to owner" on public.fantasy_team_players;
 create policy "squads visible after lock or to owner" on public.fantasy_team_players
   for select using (
     public.squad_locked()
@@ -50,7 +51,8 @@ create policy "squads visible after lock or to owner" on public.fantasy_team_pla
                where ft.id = fantasy_team_id and ft.user_id = auth.uid())
   );
 
-drop policy "transfers readable by all" on public.transfers;
+drop policy if exists "transfers readable by all" on public.transfers;
+drop policy if exists "transfers visible after lock or to owner" on public.transfers;
 create policy "transfers visible after lock or to owner" on public.transfers
   for select using (
     public.squad_locked()
@@ -58,7 +60,8 @@ create policy "transfers visible after lock or to owner" on public.transfers
                where ft.id = fantasy_team_id and ft.user_id = auth.uid())
   );
 
-drop policy "captain picks readable by all" on public.captain_picks;
+drop policy if exists "captain picks readable by all" on public.captain_picks;
+drop policy if exists "captain picks visible after lock or to owner" on public.captain_picks;
 create policy "captain picks visible after lock or to owner" on public.captain_picks
   for select using (
     public.squad_locked()
@@ -69,7 +72,8 @@ create policy "captain picks visible after lock or to owner" on public.captain_p
 -- ---------------------------------------------------------------------------
 -- M2 — private leagues visible to members only; join via RPC
 -- ---------------------------------------------------------------------------
-drop policy "leagues readable by all" on public.private_leagues;
+drop policy if exists "leagues readable by all" on public.private_leagues;
+drop policy if exists "leagues visible to commissioner and members" on public.private_leagues;
 create policy "leagues visible to commissioner and members" on public.private_leagues
   for select using (
     commissioner_id = auth.uid()
@@ -175,5 +179,5 @@ $$;
 -- ---------------------------------------------------------------------------
 -- M6 — no duplicate players per team (case-insensitive names)
 -- ---------------------------------------------------------------------------
-create unique index players_team_name_uniq
+create unique index if not exists players_team_name_uniq
   on public.players (team_id, lower(first_name), lower(last_name));
