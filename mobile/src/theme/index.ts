@@ -11,6 +11,12 @@ export const colors = {
   danger: '#FF5252',
   success: '#4CAF50',
   border: 'rgba(255,255,255,0.12)',
+  // UX redesign 2.0 — semantic aliases (never re-skin, only extend)
+  live: '#FF3D71',        // LIVE badge
+  warn: '#FFB300',        // deadline < 24h
+  rise: '#4CAF50',        // price/rank up
+  fall: '#FF5252',        // price/rank down
+  gold: '#FFD54F',        // captain armband, POTM
 };
 
 export const spacing = (n: number) => n * 4;
@@ -18,6 +24,7 @@ export const spacing = (n: number) => n * 4;
 export const radius = { sm: 8, md: 12, lg: 20, full: 999 };
 
 export const font = {
+  hero: { fontSize: 40, fontWeight: '800' as const, color: colors.text },
   h1: { fontSize: 28, fontWeight: '800' as const, color: colors.text },
   h2: { fontSize: 20, fontWeight: '700' as const, color: colors.text },
   h3: { fontSize: 16, fontWeight: '600' as const, color: colors.text },
