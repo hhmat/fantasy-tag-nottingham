@@ -57,6 +57,57 @@ export function subscribeToLiveScores(gameweekId: number, onChange: () => void) 
   };
 }
 
+/** Earliest UNFINISHED gameweek — the one squads are being built for. */
+export async function getOpenGameweek(): Promise<Gameweek | null> {
+  const { data, error } = await supabase
+    .from('gameweeks')
+    .select('*')
+    .eq('is_finished', false)
+    .order('id')
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Gameweek) ?? null;
+}
+
+/** Most recently finished gameweek (for "last week" points + price moves). */
+export async function getLastFinishedGameweek(): Promise<Gameweek | null> {
+  const { data, error } = await supabase
+    .from('gameweeks')
+    .select('*')
+    .eq('is_finished', true)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Gameweek) ?? null;
+}
+
+/** Fixtures currently being played (status = 'live'). */
+export async function getLiveFixtures(): Promise<Fixture[]> {
+  const { data, error } = await supabase
+    .from('v_fixtures')
+    .select('*')
+    .eq('status', 'live')
+    .order('kickoff');
+  if (error) throw error;
+  return data as Fixture[];
+}
+
+/** Price movements applied for a gameweek: player_id → delta. */
+export async function getPriceChanges(gameweekId: number): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('price_history')
+    .select('player_id, old_price, new_price')
+    .eq('gameweek_id', gameweekId);
+  if (error) throw error;
+  const out: Record<string, number> = {};
+  for (const r of data ?? []) {
+    out[r.player_id] = Number(((r.new_price as number) - (r.old_price as number)).toFixed(1));
+  }
+  return out;
+}
+
 // ---- Admin ----
 
 export async function adminCreateFixture(f: {

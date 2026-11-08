@@ -1,43 +1,92 @@
-// Home dashboard — team snapshot, deadline, next fixtures, top scorers.
-import React from 'react';
+// Home — the Gameweek Hub: deadline hero, team snapshot with rank movement,
+// live strip, upcoming fixtures, hot players. (UX redesign step 2.2)
+import React, { useEffect, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/store/AuthContext';
-import { getMyFantasyTeam, getSquadTotalPoints } from '@/api/fantasy';
-import { getCurrentGameweek, getNextFixtures } from '@/api/fixtures';
-import { getGlobalLeaderboard } from '@/api/leagues';
+import { getMyFantasyTeam, getSquadGameweekPoints, getSquadTotalPoints } from '@/api/fantasy';
+import {
+  getLastFinishedGameweek,
+  getLiveFixtures,
+  getNextFixtures,
+  getOpenGameweek,
+  getPriceChanges,
+  subscribeToLiveScores,
+} from '@/api/fixtures';
+import { getGlobalLeaderboard, getWeeklyLeaderboard } from '@/api/leagues';
 import { getPlayers } from '@/api/players';
 import { signOut } from '@/api/auth';
-import { Card, EmptyState, Screen, SectionTitle } from '@/components/ui';
+import { Badge, Card, EmptyState, Screen, SectionTitle } from '@/components/ui';
+import { DeadlineChip, PriceArrow, RankBadge } from '@/components/fantasy';
 import { PlayerRow } from '@/components/PlayerRow';
 import { colors, font, spacing } from '@/theme';
 
 export default function HomeScreen() {
   const { profile, session } = useAuth();
   const router = useRouter();
+  const qc = useQueryClient();
 
   const { data: myTeam } = useQuery({
     queryKey: ['my-team', session?.user.id],
     queryFn: () => getMyFantasyTeam(session!.user.id),
     enabled: !!session,
   });
-  const { data: gameweek } = useQuery({ queryKey: ['current-gw'], queryFn: getCurrentGameweek });
+  const { data: gameweek } = useQuery({ queryKey: ['open-gw'], queryFn: getOpenGameweek });
+  const { data: lastGw } = useQuery({ queryKey: ['last-gw'], queryFn: getLastFinishedGameweek });
   const { data: totalPoints = 0 } = useQuery({
     queryKey: ['my-points', myTeam?.id],
     queryFn: () => getSquadTotalPoints(myTeam!.id),
     enabled: !!myTeam,
   });
+  const { data: myGwPoints } = useQuery({
+    queryKey: ['my-gw-points', myTeam?.id, lastGw?.id],
+    queryFn: () => getSquadGameweekPoints(myTeam!.id, lastGw!.id),
+    enabled: !!myTeam && !!lastGw,
+  });
   const { data: board = [] } = useQuery({ queryKey: ['global-board'], queryFn: () => getGlobalLeaderboard(100) });
+  const { data: lastGwRows = [] } = useQuery({
+    queryKey: ['weekly-board', lastGw?.id],
+    queryFn: () => getWeeklyLeaderboard(lastGw!.id),
+    enabled: !!lastGw,
+  });
+  const { data: liveFixtures = [] } = useQuery({ queryKey: ['live-fixtures'], queryFn: getLiveFixtures });
   const { data: nextFixtures = [] } = useQuery({ queryKey: ['next-fixtures'], queryFn: () => getNextFixtures(3) });
+  const { data: priceChanges = {} } = useQuery({
+    queryKey: ['price-changes', lastGw?.id],
+    queryFn: () => getPriceChanges(lastGw!.id),
+    enabled: !!lastGw,
+  });
   const { data: hotPlayers = [] } = useQuery({
     queryKey: ['hot-players'],
     queryFn: () => getPlayers({ sortBy: 'total_points' }),
     select: (rows) => rows.slice(0, 3),
   });
 
-  const myRank = board.find((r) => r.fantasy_team_id === myTeam?.id)?.rank;
-  const deadline = gameweek ? new Date(gameweek.deadline) : null;
+  // Realtime: refresh the live strip as scores come in.
+  useEffect(() => {
+    if (gameweek?.id == null) return;
+    return subscribeToLiveScores(gameweek.id, () => {
+      qc.invalidateQueries({ queryKey: ['live-fixtures'] });
+      qc.invalidateQueries({ queryKey: ['next-fixtures'] });
+    });
+  }, [gameweek?.id]);
+
+  const myRow = board.find((r) => r.fantasy_team_id === myTeam?.id);
+
+  // Rank movement = current rank vs rank computed without the last finished GW.
+  const movement = useMemo(() => {
+    if (!myRow || lastGwRows.length === 0) return null;
+    const lastByTeam = new Map(lastGwRows.map((r) => [r.fantasy_team_id, r.points]));
+    const prev = board
+      .map((r) => ({
+        id: r.fantasy_team_id,
+        pts: r.total_points - (lastByTeam.get(r.fantasy_team_id) ?? 0),
+      }))
+      .sort((a, b) => b.pts - a.pts);
+    const prevRank = prev.findIndex((p) => p.id === myRow.fantasy_team_id) + 1;
+    return prevRank > 0 ? prevRank - myRow.rank : null;
+  }, [board, lastGwRows, myRow]);
 
   return (
     <Screen>
@@ -48,37 +97,52 @@ export default function HomeScreen() {
         </View>
         <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
           {profile?.is_admin ? (
-            <Pressable onPress={() => router.push('/admin')}>
+            <Pressable onPress={() => router.push('/admin')} accessibilityRole="button">
               <Text style={{ color: colors.accent, fontWeight: '700' }}>🛠 Admin</Text>
             </Pressable>
           ) : null}
-          <Pressable onPress={() => signOut()}>
+          <Pressable onPress={() => signOut()} accessibilityRole="button">
             <Text style={[font.muted, { textDecorationLine: 'underline' }]}>Sign out</Text>
           </Pressable>
         </View>
       </View>
 
-      {/* Team snapshot */}
-      <Card style={{ marginTop: spacing(3) }}>
-        {myTeam ? (
-          <Pressable onPress={() => router.push('/(tabs)/squad')}>
-            <View style={styles.rowBetween}>
-              <View>
-                <Text style={font.h2}>{myTeam.name}</Text>
-                <Text style={font.muted}>
-                  {myRank ? `Global rank #${myRank}` : 'Unranked'} · {totalPoints} pts
-                </Text>
-              </View>
-              <Text style={{ fontSize: 32 }}>🏉</Text>
-            </View>
-            {gameweek && deadline ? (
-              <Text style={[font.tiny, { marginTop: spacing(2) }]}>
-                {gameweek.name} deadline:{' '}
-                {deadline.toLocaleString('en-GB', {
+      {/* Gameweek hero */}
+      {gameweek ? (
+        <Card style={styles.heroCard}>
+          <View style={styles.rowBetween}>
+            <View>
+              <Text style={font.h2}>{gameweek.name}</Text>
+              <Text style={font.tiny}>
+                Deadline{' '}
+                {new Date(gameweek.deadline).toLocaleString('en-GB', {
                   weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                 })}
               </Text>
-            ) : null}
+            </View>
+            <DeadlineChip deadline={gameweek.deadline} />
+          </View>
+        </Card>
+      ) : null}
+
+      {/* Team snapshot */}
+      <Card>
+        {myTeam ? (
+          <Pressable onPress={() => router.push('/(tabs)/squad')} accessibilityRole="button">
+            <View style={styles.rowBetween}>
+              <View style={{ flex: 1 }}>
+                <Text style={font.h2}>{myTeam.name}</Text>
+                <View style={{ marginTop: 2 }}>
+                  <RankBadge rank={myRow?.rank} movement={movement} />
+                </View>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={font.hero}>{totalPoints}</Text>
+                <Text style={font.tiny}>
+                  {lastGw && myGwPoints != null ? `GW${lastGw.id}: ${myGwPoints} pts` : 'total pts'}
+                </Text>
+              </View>
+            </View>
           </Pressable>
         ) : (
           <EmptyState
@@ -90,13 +154,35 @@ export default function HomeScreen() {
       </Card>
 
       {!myTeam ? (
-        <Pressable style={styles.cta} onPress={() => router.push('/transfers')}>
+        <Pressable style={styles.cta} onPress={() => router.push('/transfers')} accessibilityRole="button">
           <Text style={styles.ctaText}>Build my squad →</Text>
         </Pressable>
       ) : null}
 
-      {/* Next fixtures */}
-      <SectionTitle>Upcoming fixtures</SectionTitle>
+      {/* Live strip */}
+      {liveFixtures.length > 0 ? (
+        <>
+          <SectionTitle>Happening now</SectionTitle>
+          {liveFixtures.map((f) => (
+            <Card key={f.id} style={styles.liveCard}>
+              <View style={styles.rowBetween}>
+                <Badge text="LIVE" color={colors.live} />
+                <Text style={font.tiny}>updates automatically</Text>
+              </View>
+              <Text style={[font.h3, { marginTop: spacing(2), textAlign: 'center' }]}>
+                {f.home_short}{' '}
+                <Text style={{ color: colors.accent, fontWeight: '800' }}>
+                  {f.home_score ?? 0} – {f.away_score ?? 0}
+                </Text>{' '}
+                {f.away_short}
+              </Text>
+            </Card>
+          ))}
+        </>
+      ) : null}
+
+      {/* Up next */}
+      <SectionTitle>Up next</SectionTitle>
       {nextFixtures.length === 0 ? (
         <Text style={font.muted}>No fixtures scheduled yet.</Text>
       ) : (
@@ -116,7 +202,7 @@ export default function HomeScreen() {
       )}
 
       {/* Hot players */}
-      <SectionTitle>Top scorers</SectionTitle>
+      <SectionTitle>Top scorers 🔥</SectionTitle>
       {hotPlayers.map((p) => (
         <PlayerRow
           key={p.player_id}
@@ -124,6 +210,7 @@ export default function HomeScreen() {
           teamShort={p.team_short}
           position={p.position}
           price={p.price}
+          priceDelta={priceChanges[p.player_id] ?? null}
           points={p.total_points}
           onPress={() => router.push(`/player/${p.player_id}`)}
         />
@@ -134,6 +221,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heroCard: { marginTop: spacing(3), backgroundColor: colors.bgAlt },
+  liveCard: { borderColor: colors.live },
   cta: {
     backgroundColor: colors.accent,
     borderRadius: 12,
