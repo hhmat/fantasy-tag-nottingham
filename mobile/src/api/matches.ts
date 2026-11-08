@@ -41,10 +41,14 @@ export async function getMatchEvents(fixtureId: string): Promise<MatchEvent[]> {
   return data as unknown as MatchEvent[];
 }
 
+let matchChannelId = 0;
+
 /** Refresh fixture, statistics and event queries after any match-table change. */
 export function subscribeToMatch(fixtureId: string, onChange: () => void) {
+  // Never reuse a topic while Supabase may still be removing its predecessor.
+  matchChannelId += 1;
   const channel = supabase
-    .channel(`match-centre-${fixtureId}`)
+    .channel(`match-centre-${fixtureId}-${Date.now()}-${matchChannelId}`)
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'fixtures', filter: `id=eq.${fixtureId}`,
     }, onChange)
@@ -56,7 +60,7 @@ export function subscribeToMatch(fixtureId: string, onChange: () => void) {
     }, onChange)
     .subscribe();
   return () => {
-    supabase.removeChannel(channel);
+    void supabase.removeChannel(channel);
   };
 }
 

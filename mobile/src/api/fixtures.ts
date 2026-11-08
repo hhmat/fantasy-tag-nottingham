@@ -42,10 +42,15 @@ export async function getNextFixtures(limit = 6): Promise<Fixture[]> {
   return data as Fixture[];
 }
 
+let liveScoreChannelId = 0;
+
 /** Subscribe to live score changes for a gameweek. Returns unsubscribe fn. */
 export function subscribeToLiveScores(gameweekId: number, onChange: () => void) {
+  // StrictMode and fast gameweek changes can resubscribe before removeChannel
+  // finishes. A unique topic prevents the old channel being reused mid-removal.
+  liveScoreChannelId += 1;
   const channel = supabase
-    .channel(`fixtures-gw-${gameweekId}`)
+    .channel(`fixtures-gw-${gameweekId}-${Date.now()}-${liveScoreChannelId}`)
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'fixtures', filter: `gameweek_id=eq.${gameweekId}` },
@@ -53,7 +58,7 @@ export function subscribeToLiveScores(gameweekId: number, onChange: () => void) 
     )
     .subscribe();
   return () => {
-    supabase.removeChannel(channel);
+    void supabase.removeChannel(channel);
   };
 }
 
