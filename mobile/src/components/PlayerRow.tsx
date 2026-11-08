@@ -11,9 +11,11 @@ import { ArmbandIcon, FormDots, PriceArrow } from './fantasy';
 export function PlayerRow({
   name,
   teamShort,
+  teamName,
   position,
   price,
   points,
+  listNumber,
   isCaptain = false,
   isViceCaptain = false,
   isPom = false,
@@ -25,9 +27,12 @@ export function PlayerRow({
 }: {
   name: string;
   teamShort: string;
+  teamName?: string;
   position: string;
   price?: number;
   points?: number;
+  /** Sequential position in the currently displayed list. */
+  listNumber?: number;
   isCaptain?: boolean;
   isViceCaptain?: boolean;
   /** Player of the Match badge (⭐) */
@@ -43,7 +48,7 @@ export function PlayerRow({
 }) {
   const subtitle = [
     position,
-    teamShort,
+    teamName ?? teamShort,
     ownership != null ? `${Math.round(ownership)}% owned` : null,
   ]
     .filter(Boolean)
@@ -54,8 +59,13 @@ export function PlayerRow({
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={`${name}, ${position}, ${teamShort}${price != null ? `, ${formatMoney(price)}` : ''}${points != null ? `, ${points} points` : ''}${isCaptain ? ', captain' : ''}${isViceCaptain ? ', vice-captain' : ''}`}
+      accessibilityLabel={`${listNumber != null ? `${listNumber}. ` : ''}${name}, ${position}, ${teamName ?? teamShort}${price != null ? `, ${formatMoney(price)}` : ''}${points != null ? `, ${points} points` : ''}${isCaptain ? ', captain' : ''}${isViceCaptain ? ', vice-captain' : ''}`}
     >
+      {listNumber != null ? (
+        <View style={styles.listNumber}>
+          <Text style={styles.listNumberText}>{listNumber}</Text>
+        </View>
+      ) : null}
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{teamShort.slice(0, 3)}</Text>
       </View>
@@ -105,6 +115,11 @@ const styles = StyleSheet.create({
     gap: spacing(3),
     minHeight: 56,
   },
+  listNumber: {
+    width: 28,
+    alignItems: 'center',
+  },
+  listNumberText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
   avatar: {
     width: 40,
     height: 40,

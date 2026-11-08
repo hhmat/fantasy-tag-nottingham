@@ -30,20 +30,23 @@ export default function PlayersScreen() {
         {/* Team filter chips */}
         <FlatList
           horizontal
-          data={[{ id: null, short_name: 'ALL' } as any, ...teams]}
+          data={[{ id: null, name: 'All', short_name: 'ALL' }, ...teams]}
           keyExtractor={(t) => t.id ?? 'all'}
+          initialNumToRender={13}
           showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, marginBottom: spacing(2) }}
+          style={styles.teamFilterList}
+          contentContainerStyle={styles.teamFilterContent}
           renderItem={({ item: t }) => (
             <Pressable
               onPress={() => setTeamId(t.id)}
               style={[styles.chip, teamId === t.id && styles.chipActive]}
               accessibilityRole="tab"
-              accessibilityLabel={t.id ? `Filter by ${t.short_name}` : 'Show all teams'}
+              accessibilityLabel={t.id ? `Filter by ${t.name}` : 'Show all teams'}
               accessibilityState={{ selected: teamId === t.id }}
+              aria-selected={teamId === t.id}
             >
               <Text style={[styles.chipText, teamId === t.id && { color: '#0B3D2E' }]}>
-                {t.short_name}
+                {t.id ? t.name : 'All'}
               </Text>
             </Pressable>
           )}
@@ -76,13 +79,15 @@ export default function PlayersScreen() {
           initialNumToRender={20}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={<Text style={[font.muted, { textAlign: 'center', marginTop: 40 }]}>No players found.</Text>}
-          renderItem={({ item: p }) => (
+          renderItem={({ item: p, index }) => (
             <PlayerRow
               name={`${p.first_name} ${p.last_name}`}
               teamShort={p.team_short}
+              teamName={p.team_name}
               position={p.position}
               price={p.price}
               points={p.total_points}
+              listNumber={index + 1}
               onPress={() => router.push(`/player/${p.player_id}`)}
             />
           )}
@@ -93,6 +98,13 @@ export default function PlayersScreen() {
 }
 
 const styles = StyleSheet.create({
+  teamFilterList: {
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 52,
+    marginBottom: spacing(2),
+  },
+  teamFilterContent: { alignItems: 'center' },
   chip: {
     backgroundColor: colors.card,
     borderRadius: radius.full,
