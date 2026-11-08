@@ -68,6 +68,7 @@ function RootNavigator() {
       <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ title: 'Reset password', headerShown: false }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="profile" options={{ title: 'Manager & team profile' }} />
       <Stack.Screen name="admin" options={{ headerShown: false }} />
     </Stack>
   );

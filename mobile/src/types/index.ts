@@ -93,6 +93,10 @@ export interface FantasyTeam {
   user_id: string;
   name: string;
   budget: number;
+  badge_url?: string | null;
+  primary_color?: string;
+  secondary_color?: string;
+  description?: string;
 }
 
 export interface SquadPlayer {

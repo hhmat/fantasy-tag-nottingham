@@ -92,3 +92,19 @@ export async function setOnboardingStep(userId: string, step: number | null) {
     .eq('id', userId);
   if (error) throw error;
 }
+
+export async function updateProfileDetails(userId: string, displayName: string) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ display_name: displayName })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+export async function setAvatarUrl(userId: string, avatarUrl: string | null) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl })
+    .eq('id', userId);
+  if (error) throw error;
+}

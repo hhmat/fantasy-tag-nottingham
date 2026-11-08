@@ -34,7 +34,14 @@
           "sounds": []
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a photo for your manager avatar or fantasy team badge.",
+          "cameraPermission": "Take a photo for your manager avatar."
+        }
+      ]
     ],
     "extra": {
       "router": {

@@ -28,6 +28,21 @@ export async function renameFantasyTeam(teamId: string, name: string) {
   if (error) throw error;
 }
 
+export async function updateFantasyTeamProfile(teamId: string, details: {
+  name: string;
+  description: string;
+  primary_color: string;
+  secondary_color: string;
+}) {
+  const { error } = await supabase.from('fantasy_teams').update(details).eq('id', teamId);
+  if (error) throw error;
+}
+
+export async function setTeamBadgeUrl(teamId: string, badgeUrl: string | null) {
+  const { error } = await supabase.from('fantasy_teams').update({ badge_url: badgeUrl }).eq('id', teamId);
+  if (error) throw error;
+}
+
 export async function getSquad(teamId: string, gameweekId?: number): Promise<SquadPlayer[]> {
   const squadQuery = supabase
     .from('fantasy_team_players')

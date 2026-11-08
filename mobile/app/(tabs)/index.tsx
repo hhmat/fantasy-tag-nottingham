@@ -20,6 +20,7 @@ import { signOut } from '@/api/auth';
 import { Badge, Card, EmptyState, Screen, SectionTitle } from '@/components/ui';
 import { DeadlineChip, PriceArrow, RankBadge } from '@/components/fantasy';
 import { PlayerRow } from '@/components/PlayerRow';
+import { Avatar } from '@/components/ProfileImage';
 import { colors, font, spacing } from '@/theme';
 
 export default function HomeScreen() {
@@ -91,10 +92,18 @@ export default function HomeScreen() {
   return (
     <Screen>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <View>
-          <Text style={font.muted}>Welcome back,</Text>
-          <Text style={font.h1}>{profile?.display_name ?? 'Manager'}</Text>
-        </View>
+        <Pressable
+          onPress={() => router.push('/profile')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2), flex: 1, minHeight: 56 }}
+          accessibilityRole="button"
+          accessibilityLabel="Edit manager and team profile"
+        >
+          <Avatar value={profile?.avatar_url} name={profile?.display_name ?? 'Manager'} size={52} />
+          <View style={{ flex: 1 }}>
+            <Text style={font.muted}>Welcome back,</Text>
+            <Text style={font.h1} numberOfLines={1}>{profile?.display_name ?? 'Manager'}</Text>
+          </View>
+        </Pressable>
         <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
           {profile?.is_admin ? (
             <Pressable
