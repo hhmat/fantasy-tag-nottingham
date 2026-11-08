@@ -21,10 +21,12 @@ function RootNavigator() {
 
   React.useEffect(() => {
     if (loading) return;
-    const inAuthGroup = segments[0] === '(auth)';
+    // '(auth)' holds login/register; 'auth/callback' is the OAuth/recovery
+    // landing route — both must be reachable while signed out.
+    const inAuthGroup = segments[0] === '(auth)' || segments[0] === 'auth';
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
+    } else if (session && segments[0] === '(auth)') {
       router.replace('/(tabs)');
     }
   }, [session, loading, segments]);
@@ -63,6 +65,8 @@ function RootNavigator() {
       <Stack.Screen name="team/[id]" options={{ title: 'Team' }} />
       <Stack.Screen name="league/[id]" options={{ title: 'League' }} />
       <Stack.Screen name="transfers" options={{ title: 'Squad Builder', presentation: 'modal' }} />
+      <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ title: 'Reset password', headerShown: false }} />
       <Stack.Screen name="admin" options={{ headerShown: false }} />
     </Stack>
   );

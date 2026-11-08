@@ -1,4 +1,5 @@
 // Auth API — email + Google OAuth via Supabase Auth.
+import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
@@ -6,9 +7,16 @@ import type { Profile } from '@/types';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Deep link back into the app after OAuth. Register
-// `fantasytag://auth/callback` in Supabase → Authentication → Redirect URLs.
-const redirectTo = makeRedirectUri({ scheme: 'fantasytag', path: 'auth/callback' });
+// Where Supabase sends users after OAuth / email confirmation / password
+// recovery. On web this MUST include the GitHub Pages subpath (baked in at
+// export time as EXPO_PUBLIC_BASE_PATH); on native it is the app deep link.
+// Register BOTH in Supabase → Authentication → URL Configuration:
+//   https://hhmat.github.io/fantasy-tag-nottingham/auth/callback
+//   fantasytag://auth/callback
+export const redirectTo =
+  Platform.OS === 'web' && typeof window !== 'undefined'
+    ? `${window.location.origin}${process.env.EXPO_PUBLIC_BASE_PATH ?? ''}/auth/callback`
+    : makeRedirectUri({ scheme: 'fantasytag', path: 'auth/callback' });
 
 export async function signInWithEmail(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -25,6 +33,17 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 }
 
 export async function signInWithGoogle() {
+  if (Platform.OS === 'web') {
+    // Full-window redirect flow; the session is picked up in /auth/callback.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    });
+    if (error) throw error;
+    return;
+  }
+
+  // Native: in-app browser session, exchange the code inline.
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo, skipBrowserRedirect: true },

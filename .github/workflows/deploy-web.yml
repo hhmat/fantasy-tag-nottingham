@@ -44,6 +44,8 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           # Subpath the site is served from — must match the repo name
           EXPO_BASE_URL: /${{ github.event.repository.name }}
+          # Same subpath, exposed to the bundle for auth redirect URLs
+          EXPO_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
 
       # Gate 2: smoke-check the exported bundle. Catches the two failure
       # modes we've hit in production: missing env (app boots with no
