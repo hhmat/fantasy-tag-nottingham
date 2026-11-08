@@ -128,51 +128,24 @@ export async function setCaptainForGameweek(opts: {
 }
 
 /**
- * Add a player to the squad. Used both for initial picks (playerOutId = null)
- * and transfers in. Budget/team-cap/deadline rules are enforced server-side.
+ * Add a player to the squad — initial pick (no playerOutRowId) or transfer.
+ * Runs as ONE server-side transaction (transfer_player RPC): ownership,
+ * deadline, availability, budget and team-cap rules are all enforced in the
+ * database, and the price comes from the players table, not the client.
  */
 export async function addPlayerToSquad(opts: {
   fantasyTeamId: string;
   playerId: string;
-  purchasePrice: number;
   gameweekId: number;
   playerOutRowId?: string; // fantasy_team_players row to transfer out
-  playerOutId?: string;
 }) {
-  const { fantasyTeamId, playerId, purchasePrice, gameweekId, playerOutRowId, playerOutId } = opts;
-
-  if (playerOutRowId && playerOutId) {
-    const { error: outErr } = await supabase
-      .from('fantasy_team_players')
-      .update({ is_active: false, removed_gameweek: gameweekId })
-      .eq('id', playerOutRowId);
-    if (outErr) throw outErr;
-  }
-
-  const { error: inErr } = await supabase.from('fantasy_team_players').insert({
-    fantasy_team_id: fantasyTeamId,
-    player_id: playerId,
-    purchase_price: purchasePrice,
-    added_gameweek: gameweekId,
+  const { error } = await supabase.rpc('transfer_player', {
+    p_fantasy_team_id: opts.fantasyTeamId,
+    p_player_in_id: opts.playerId,
+    p_gameweek_id: opts.gameweekId,
+    p_player_out_row_id: opts.playerOutRowId ?? null,
   });
-  if (inErr) {
-    // roll back the removal so the squad isn't left short
-    if (playerOutRowId) {
-      await supabase
-        .from('fantasy_team_players')
-        .update({ is_active: true, removed_gameweek: null })
-        .eq('id', playerOutRowId);
-    }
-    throw inErr;
-  }
-
-  const { error: logErr } = await supabase.from('transfers').insert({
-    fantasy_team_id: fantasyTeamId,
-    gameweek_id: gameweekId,
-    player_in_id: playerId,
-    player_out_id: playerOutId ?? null,
-  });
-  if (logErr) throw logErr;
+  if (error) throw error;
 }
 
 export async function getTransfersThisGameweek(teamId: string, gameweekId: number) {

@@ -42,15 +42,10 @@ export async function createPrivateLeague(name: string, commissionerId: string, 
   return data as PrivateLeague;
 }
 
-export async function joinPrivateLeagueByCode(code: string, teamId: string) {
-  const { data: league, error } = await supabase
-    .from('private_leagues')
-    .select('id')
-    .eq('code', code.trim().toUpperCase())
-    .maybeSingle();
+export async function joinPrivateLeagueByCode(code: string, _teamId: string) {
+  // Server-side RPC: league codes are no longer readable client-side (M2).
+  const { error } = await supabase.rpc('join_league_by_code', { p_code: code });
   if (error) throw error;
-  if (!league) throw new Error('No league found with that code.');
-  await joinPrivateLeagueById(league.id, teamId);
 }
 
 async function joinPrivateLeagueById(leagueId: string, teamId: string) {

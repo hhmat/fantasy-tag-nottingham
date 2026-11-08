@@ -111,10 +111,8 @@ export default function TransfersScreen() {
       await addPlayerToSquad({
         fantasyTeamId,
         playerId: p.player_id,
-        purchasePrice: p.price,
         gameweekId: gameweek.id,
         playerOutRowId: replacing?.id,
-        playerOutId: replacing?.player_id,
       });
       qc.invalidateQueries({ queryKey: ['squad'] });
       qc.invalidateQueries({ queryKey: ['transfers'] });
