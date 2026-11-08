@@ -110,6 +110,14 @@ export interface SquadPlayer {
   player: Player & { team_name: string; team_short: string; total_points?: number };
 }
 
+export interface FormationEntry {
+  squad_row_id: string;
+  is_starter: boolean;
+  position_x: number;
+  position_y: number;
+  bench_order: number;
+}
+
 export interface LeaderboardRow {
   fantasy_team_id: string;
   team_name: string;

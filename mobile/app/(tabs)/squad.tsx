@@ -1,4 +1,4 @@
-// My Squad 3.2 — position groups, per-GW captain + vice-captain controls,
+// My Squad 4.0 — interactive tag pitch, per-GW formations and captaincy,
 // lock chip, budget/rank strip and bottom-anchored transfers CTA.
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -13,19 +13,14 @@ import {
   getTransfersThisGameweek,
   freeTransfersRemaining,
   renameFantasyTeam,
-  setCaptaincyForGameweek,
-  type CaptaincyRole,
 } from '@/api/fantasy';
 import { getOpenGameweek } from '@/api/fixtures';
 import { getGlobalLeaderboard } from '@/api/leagues';
 import { Button, Card, EmptyState, Screen } from '@/components/ui';
 import { DeadlineChip, RankBadge } from '@/components/fantasy';
-import { PlayerRow } from '@/components/PlayerRow';
+import { SquadPitch } from '@/components/SquadPitch';
 import { formatMoney, SQUAD_RULES } from '@/lib/scoring';
 import { colors, font, radius, spacing } from '@/theme';
-import type { SquadPlayer } from '@/types';
-
-const POSITION_GROUPS = ['Forward', 'Back', 'Utility'] as const;
 
 export default function SquadScreen() {
   const { session, profile } = useAuth();
@@ -33,7 +28,6 @@ export default function SquadScreen() {
   const qc = useQueryClient();
   const [newName, setNewName] = useState('');
   const [editingName, setEditingName] = useState(false);
-  const [captaincyPlayer, setCaptaincyPlayer] = useState<SquadPlayer | null>(null);
 
   const { data: team, isLoading } = useQuery({
     queryKey: ['my-team', session?.user.id],
@@ -69,22 +63,6 @@ export default function SquadScreen() {
     onError: (e: any) => Alert.alert('Could not create team', e.message),
   });
 
-  const captainMut = useMutation({
-    mutationFn: ({ rowId, role, selected }: { rowId: string; role: CaptaincyRole; selected: boolean }) =>
-      setCaptaincyForGameweek({
-        teamId: team!.id,
-        squadRowId: rowId,
-        gameweekId: gameweek!.id,
-        role,
-        selected,
-      }),
-    onSuccess: () => {
-      setCaptaincyPlayer(null);
-      invalidate();
-    },
-    onError: (e: any) => Alert.alert('Captaincy change failed', e.message),
-  });
-
   if (!isLoading && !team) {
     return (
       <Screen>
@@ -115,25 +93,6 @@ export default function SquadScreen() {
   const freeLeft = freeTransfersRemaining(transfersUsed.length);
   const myRank = board.find((r) => r.fantasy_team_id === team?.id)?.rank;
   const locked = gameweek ? Date.now() > new Date(gameweek.deadline).getTime() : false;
-
-  const grouped = POSITION_GROUPS.map((pos) => ({
-    pos,
-    players: squad.filter((s) => s.player.position === pos),
-  })).filter((g) => g.players.length > 0);
-
-  function handlePlayerTap(s: SquadPlayer) {
-    if (locked) {
-      Alert.alert(
-        `${s.player.first_name} ${s.player.last_name}`,
-        'Squads are locked until results are finalised.',
-        [{ text: 'View profile', onPress: () => router.push(`/player/${s.player_id}`) },
-         { text: 'OK', style: 'cancel' }],
-      );
-      return;
-    }
-    if (!gameweek) return Alert.alert('Still loading', 'Try again in a moment.');
-    setCaptaincyPlayer(s);
-  }
 
   return (
     <Screen scroll={false}>
@@ -200,86 +159,23 @@ export default function SquadScreen() {
             </Card>
           ) : null}
 
-          {/* Captaincy panel avoids platform Alert button limits. */}
-          {captaincyPlayer ? (
-            <Card style={styles.captaincyCard}>
-              <Text style={font.h3}>
-                {captaincyPlayer.player.first_name} {captaincyPlayer.player.last_name}
-              </Text>
-              <Text style={[font.tiny, { marginTop: spacing(1) }]}>
-                C scores 2×. V scores 2× only when C has no attended match.
-              </Text>
-              <View style={styles.captaincyButtons}>
-                <View style={styles.flex}>
-                  <Button
-                    title={captaincyPlayer.is_captain ? 'Remove C' : 'Make captain'}
-                    loading={captainMut.isPending && captainMut.variables?.role === 'captain'}
-                    disabled={captainMut.isPending}
-                    onPress={() => captainMut.mutate({
-                      rowId: captaincyPlayer.id,
-                      role: 'captain',
-                      selected: !captaincyPlayer.is_captain,
-                    })}
-                  />
-                </View>
-                <View style={styles.flex}>
-                  <Button
-                    title={captaincyPlayer.is_vice_captain ? 'Remove V' : 'Make vice'}
-                    variant="secondary"
-                    loading={captainMut.isPending && captainMut.variables?.role === 'vice'}
-                    disabled={captainMut.isPending}
-                    onPress={() => captainMut.mutate({
-                      rowId: captaincyPlayer.id,
-                      role: 'vice',
-                      selected: !captaincyPlayer.is_vice_captain,
-                    })}
-                  />
-                </View>
-              </View>
-              <View style={styles.captaincyButtons}>
-                <View style={styles.flex}>
-                  <Button
-                    title="View profile"
-                    variant="ghost"
-                    onPress={() => router.push(`/player/${captaincyPlayer.player_id}`)}
-                  />
-                </View>
-                <View style={styles.flex}>
-                  <Button title="Cancel" variant="ghost" onPress={() => setCaptaincyPlayer(null)} />
-                </View>
-              </View>
-            </Card>
-          ) : null}
-
-          {/* Grouped roster */}
+          {/* Phase 4 interactive starting 7, substitutes and player cards. */}
           {squad.length === 0 ? (
             <EmptyState emoji="🫥" title="No tags yet"
               subtitle="Open the squad builder below to pick your 10." />
+          ) : team && gameweek ? (
+            <SquadPitch
+              fantasyTeamId={team.id}
+              gameweekId={gameweek.id}
+              gameweekName={gameweek.name}
+              squad={squad}
+              locked={locked}
+            />
           ) : (
-            grouped.map((g) => (
-              <View key={g.pos}>
-                <Text style={styles.groupTitle}>{g.pos.toUpperCase()}S</Text>
-                {g.players.map((s) => (
-                  <PlayerRow
-                    key={s.id}
-                    name={`${s.player.first_name} ${s.player.last_name}`}
-                    teamShort={s.player.team_short}
-                    position={s.player.position}
-                    price={s.purchase_price}
-                    isCaptain={s.is_captain}
-                    isViceCaptain={s.is_vice_captain}
-                    onPress={() => handlePlayerTap(s)}
-                  />
-                ))}
-              </View>
-            ))
+            <Text style={[font.muted, { textAlign: 'center', marginTop: spacing(4) }]}>
+              Loading the next gameweek…
+            </Text>
           )}
-
-          <Text style={[font.tiny, { textAlign: 'center', marginTop: spacing(2) }]}>
-            {locked
-              ? '🔒 Locked — captain changes reopen after results.'
-              : 'Tap a player to set C or V. Vice covers an absent captain.'}
-          </Text>
         </ScrollView>
 
         {/* Bottom-anchored CTA */}
@@ -310,17 +206,8 @@ const styles = StyleSheet.create({
     gap: spacing(2),
   },
   lockCard: { marginTop: spacing(3), paddingVertical: spacing(3) },
-  captaincyCard: { borderColor: colors.gold },
-  captaincyButtons: { flexDirection: 'row', gap: spacing(2) },
   onboardCard: { marginTop: spacing(3), borderColor: colors.accent },
   lockRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(3) },
-  groupTitle: {
-    ...font.tiny,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginTop: spacing(4),
-    marginBottom: spacing(2),
-  },
   footer: {
     padding: spacing(4),
     paddingTop: spacing(2),
