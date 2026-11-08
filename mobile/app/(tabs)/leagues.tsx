@@ -1,4 +1,4 @@
-// Leagues — global / weekly / private leaderboards, create & join leagues.
+// Leagues — global / weekly / private leaderboards with rank movement.
 import React, { useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -8,13 +8,16 @@ import {
   createPrivateLeague,
   getGlobalLeaderboard,
   getMyPrivateLeagues,
+  getPrivateLeagueTable,
   getWeeklyLeaderboard,
   joinPrivateLeagueByCode,
 } from '@/api/leagues';
 import { getMyFantasyTeam } from '@/api/fantasy';
-import { getCurrentGameweek } from '@/api/fixtures';
+import { getLastFinishedGameweek, getOpenGameweek } from '@/api/fixtures';
+import { RankBadge } from '@/components/fantasy';
 import { Button, Card, Input, Screen, SectionTitle } from '@/components/ui';
 import { colors, font, radius, spacing } from '@/theme';
+import type { LeaderboardRow, PrivateLeague, WeeklyRow } from '@/types';
 
 type Mode = 'global' | 'weekly' | 'private';
 
@@ -33,7 +36,8 @@ export default function LeaguesScreen() {
     queryFn: () => getMyFantasyTeam(session!.user.id),
     enabled: !!session,
   });
-  const { data: currentGw } = useQuery({ queryKey: ['current-gw'], queryFn: getCurrentGameweek });
+  const { data: currentGw } = useQuery({ queryKey: ['open-gw'], queryFn: getOpenGameweek });
+  const { data: lastGw } = useQuery({ queryKey: ['last-gw'], queryFn: getLastFinishedGameweek });
   const { data: global = [] } = useQuery({
     queryKey: ['global-board'],
     queryFn: () => getGlobalLeaderboard(100),
@@ -43,6 +47,11 @@ export default function LeaguesScreen() {
     queryKey: ['weekly-board', currentGw?.id],
     queryFn: () => getWeeklyLeaderboard(currentGw!.id),
     enabled: mode === 'weekly' && !!currentGw,
+  });
+  const { data: lastGwRows = [] } = useQuery({
+    queryKey: ['weekly-board', lastGw?.id],
+    queryFn: () => getWeeklyLeaderboard(lastGw!.id),
+    enabled: !!lastGw,
   });
   const { data: myLeagues = [] } = useQuery({
     queryKey: ['my-leagues', myTeam?.id],
@@ -73,28 +82,36 @@ export default function LeaguesScreen() {
   });
 
   const rows = mode === 'global' ? global : mode === 'weekly' ? weekly : [];
+  const globalMovement = rankMovements(global, lastGwRows);
 
   return (
     <Screen scroll={false}>
-      <View style={{ padding: spacing(4), paddingBottom: 0, flex: 1 }}>
-        {/* Mode chips */}
-        <View style={{ flexDirection: 'row', gap: spacing(2), marginBottom: spacing(3) }}>
-          {(['global', 'weekly', 'private'] as Mode[]).map((m) => (
-            <Pressable key={m} onPress={() => setMode(m)} style={[styles.chip, mode === m && styles.chipActive]}>
-              <Text style={[styles.chipText, mode === m && { color: '#0B3D2E' }]}>
-                {m === 'global' ? '🌍 Global' : m === 'weekly' ? '📅 Weekly' : '🔒 Private'}
-              </Text>
-            </Pressable>
-          ))}
+      <View style={styles.content}>
+        <View style={styles.modeRow}>
+          {(['global', 'weekly', 'private'] as Mode[]).map((m) => {
+            const label = m === 'global' ? '🌍 Global' : m === 'weekly' ? '📅 Weekly' : '🔒 Private';
+            return (
+              <Pressable
+                key={m}
+                onPress={() => setMode(m)}
+                style={[styles.chip, mode === m && styles.chipActive]}
+                accessibilityRole="tab"
+                accessibilityLabel={`${m} leaderboard`}
+                accessibilityState={{ selected: mode === m }}
+              >
+                <Text style={[styles.chipText, mode === m && { color: '#0B3D2E' }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         {mode === 'private' ? (
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', gap: spacing(2) }}>
-              <View style={{ flex: 1 }}>
+          <View style={styles.flex}>
+            <View style={styles.actionRow}>
+              <View style={styles.flex}>
                 <Button title="Create league" variant="secondary" onPress={() => { setShowCreate((v) => !v); setShowJoin(false); }} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.flex}>
                 <Button title="Join with code" variant="ghost" onPress={() => { setShowJoin((v) => !v); setShowCreate(false); }} />
               </View>
             </View>
@@ -118,47 +135,50 @@ export default function LeaguesScreen() {
             <FlatList
               data={myLeagues}
               keyExtractor={(l) => l.id}
-              style={{ marginTop: spacing(3) }}
+              style={styles.leagueList}
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
-                <Text style={[font.muted, { textAlign: 'center', marginTop: 40 }]}>
+                <Text style={styles.emptyText}>
                   You haven't joined any private leagues yet.
                 </Text>
               }
-              renderItem={({ item: l }) => (
-                <Pressable onPress={() => router.push(`/league/${l.id}`)}>
-                  <Card>
-                    <Text style={font.h3}>{l.name}</Text>
-                    <Text style={font.tiny}>Code: {l.code}</Text>
-                  </Card>
-                </Pressable>
+              renderItem={({ item }) => (
+                <PrivateLeagueCard
+                  league={item}
+                  myTeamId={myTeam!.id}
+                  lastGwRows={lastGwRows}
+                  onPress={() => router.push(`/league/${item.id}`)}
+                />
               )}
             />
           </View>
         ) : (
           <>
-            {mode === 'weekly' && currentGw ? (
-              <SectionTitle>{currentGw.name}</SectionTitle>
-            ) : null}
+            {mode === 'weekly' && currentGw ? <SectionTitle>{currentGw.name}</SectionTitle> : null}
             <FlatList
               data={rows}
               keyExtractor={(r: any) => r.fantasy_team_id}
               showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                <Text style={[font.muted, { textAlign: 'center', marginTop: 40 }]}>
-                  No points on the board yet.
-                </Text>
-              }
+              ListEmptyComponent={<Text style={styles.emptyText}>No points on the board yet.</Text>}
               renderItem={({ item: r, index }: { item: any; index: number }) => {
                 const isMe = r.fantasy_team_id === myTeam?.id;
+                const rank = r.rank ?? index + 1;
+                const movement = mode === 'global' ? globalMovement.get(r.fantasy_team_id) : null;
+                const points = r.total_points ?? r.points ?? 0;
                 return (
-                  <View style={[styles.boardRow, isMe && styles.boardRowMe]}>
-                    <Text style={styles.rank}>{r.rank ?? index + 1}</Text>
-                    <View style={{ flex: 1 }}>
+                  <View
+                    style={[styles.boardRow, isMe && styles.boardRowMe]}
+                    accessible
+                    accessibilityLabel={`${r.team_name}, ${r.manager}, rank ${rank}${movement ? `, ${movement > 0 ? 'up' : 'down'} ${Math.abs(movement)} places` : ''}, ${points} points${isMe ? ', your team' : ''}`}
+                  >
+                    <View style={styles.rankSlot}>
+                      <RankBadge rank={rank} movement={movement} />
+                    </View>
+                    <View style={styles.flex}>
                       <Text style={font.h3} numberOfLines={1}>{r.team_name}</Text>
                       <Text style={font.tiny}>{r.manager}</Text>
                     </View>
-                    <Text style={styles.points}>{r.total_points ?? r.points}</Text>
+                    <Text style={styles.points}>{points}</Text>
                   </View>
                 );
               }}
@@ -170,7 +190,68 @@ export default function LeaguesScreen() {
   );
 }
 
+function PrivateLeagueCard({ league, myTeamId, lastGwRows, onPress }: {
+  league: PrivateLeague;
+  myTeamId: string;
+  lastGwRows: WeeklyRow[];
+  onPress: () => void;
+}) {
+  const { data: table = [] } = useQuery({
+    queryKey: ['league-table', league.id],
+    queryFn: () => getPrivateLeagueTable(league.id),
+  });
+  const myRow = table.find((r) => r.fantasy_team_id === myTeamId);
+  const movement = myRow ? rankMovements(table, lastGwRows).get(myTeamId) : null;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => pressed && { opacity: 0.7 }}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${league.name}. ${myRow ? `Your rank is ${myRow.rank} of ${table.length}` : 'Unranked'}. Invite code ${league.code}`}
+    >
+      <Card>
+        <View style={styles.privateRow}>
+          <View style={styles.flex}>
+            <Text style={font.h3}>{league.name}</Text>
+            <Text style={font.tiny}>{table.length || 'No'} manager{table.length === 1 ? '' : 's'} · Code: {league.code}</Text>
+          </View>
+          <RankBadge rank={myRow?.rank} movement={movement} />
+        </View>
+      </Card>
+    </Pressable>
+  );
+}
+
+/** Current overall rank minus each team's rank before the last finished GW. */
+function rankMovements(rows: LeaderboardRow[], lastGwRows: WeeklyRow[]) {
+  const movements = new Map<string, number | null>();
+  if (!lastGwRows.length) {
+    rows.forEach((r) => movements.set(r.fantasy_team_id, null));
+    return movements;
+  }
+  const lastByTeam = new Map(lastGwRows.map((r) => [r.fantasy_team_id, r.points]));
+  const previous = rows
+    .map((r) => ({
+      id: r.fantasy_team_id,
+      points: r.total_points - (lastByTeam.get(r.fantasy_team_id) ?? 0),
+    }))
+    .sort((a, b) => b.points - a.points);
+  rows.forEach((r) => {
+    const previousRank = previous.findIndex((p) => p.id === r.fantasy_team_id) + 1;
+    movements.set(r.fantasy_team_id, previousRank > 0 ? previousRank - r.rank : null);
+  });
+  return movements;
+}
+
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  content: { padding: spacing(4), paddingBottom: 0, flex: 1 },
+  modeRow: { flexDirection: 'row', gap: spacing(2), marginBottom: spacing(3) },
+  actionRow: { flexDirection: 'row', gap: spacing(2) },
+  leagueList: { marginTop: spacing(3) },
+  privateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(3) },
+  emptyText: { ...font.muted, textAlign: 'center', marginTop: 40 },
   chip: {
     backgroundColor: colors.card,
     borderRadius: radius.full,
@@ -178,6 +259,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontWeight: '700', fontSize: 12 },
@@ -191,8 +274,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing(3),
     marginBottom: spacing(2),
+    minHeight: 64,
   },
   boardRowMe: { borderColor: colors.accent, borderWidth: 2 },
-  rank: { color: colors.accent, fontWeight: '800', fontSize: 16, width: 32, textAlign: 'center' },
+  rankSlot: { minWidth: 64 },
   points: { color: colors.text, fontWeight: '800', fontSize: 18 },
 });

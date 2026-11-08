@@ -63,7 +63,13 @@ export default function AdminFixturesScreen() {
         <FlatList horizontal data={gameweeks} keyExtractor={(g) => String(g.id)}
           showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginVertical: spacing(2) }}
           renderItem={({ item: g }) => (
-            <Pressable onPress={() => setGwId(g.id)} style={[styles.chip, gwId === g.id && styles.chipActive]}>
+            <Pressable
+              onPress={() => setGwId(g.id)}
+              style={[styles.chip, gwId === g.id && styles.chipActive]}
+              accessibilityRole="tab"
+              accessibilityLabel={`Create fixture in gameweek ${g.id}`}
+              accessibilityState={{ selected: gwId === g.id }}
+            >
               <Text style={[styles.chipText, gwId === g.id && { color: '#0B3D2E' }]}>GW{g.id}</Text>
             </Pressable>
           )} />
@@ -125,7 +131,13 @@ function TeamPicker({ teams, selected, other, onSelect }: {
     <FlatList horizontal data={teams.filter((t) => t.id !== other)} keyExtractor={(t) => t.id}
       showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginVertical: spacing(2) }}
       renderItem={({ item: t }) => (
-        <Pressable onPress={() => onSelect(t.id)} style={[styles.chip, selected === t.id && styles.chipActive]}>
+        <Pressable
+          onPress={() => onSelect(t.id)}
+          style={[styles.chip, selected === t.id && styles.chipActive]}
+          accessibilityRole="tab"
+          accessibilityLabel={`Select ${t.short_name}`}
+          accessibilityState={{ selected: selected === t.id }}
+        >
           <Text style={[styles.chipText, selected === t.id && { color: '#0B3D2E' }]}>{t.short_name}</Text>
         </Pressable>
       )} />
@@ -141,6 +153,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
     marginRight: spacing(2),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontWeight: '700', fontSize: 12 },

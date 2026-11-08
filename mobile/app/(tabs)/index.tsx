@@ -97,11 +97,21 @@ export default function HomeScreen() {
         </View>
         <View style={{ alignItems: 'flex-end', gap: spacing(1) }}>
           {profile?.is_admin ? (
-            <Pressable onPress={() => router.push('/admin')} accessibilityRole="button">
+            <Pressable
+              onPress={() => router.push('/admin')}
+              style={styles.headerAction}
+              accessibilityRole="button"
+              accessibilityLabel="Open admin dashboard"
+            >
               <Text style={{ color: colors.accent, fontWeight: '700' }}>🛠 Admin</Text>
             </Pressable>
           ) : null}
-          <Pressable onPress={() => signOut()} accessibilityRole="button">
+          <Pressable
+            onPress={() => signOut()}
+            style={styles.headerAction}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+          >
             <Text style={[font.muted, { textDecorationLine: 'underline' }]}>Sign out</Text>
           </Pressable>
         </View>
@@ -128,7 +138,11 @@ export default function HomeScreen() {
       {/* Team snapshot */}
       <Card>
         {myTeam ? (
-          <Pressable onPress={() => router.push('/(tabs)/squad')} accessibilityRole="button">
+          <Pressable
+            onPress={() => router.push('/(tabs)/squad')}
+            accessibilityRole="button"
+            accessibilityLabel={`Open my squad, ${myTeam.name}, ${totalPoints} points${myRow ? `, rank ${myRow.rank}` : ''}`}
+          >
             <View style={styles.rowBetween}>
               <View style={{ flex: 1 }}>
                 <Text style={font.h2}>{myTeam.name}</Text>
@@ -154,7 +168,12 @@ export default function HomeScreen() {
       </Card>
 
       {!myTeam ? (
-        <Pressable style={styles.cta} onPress={() => router.push('/transfers')} accessibilityRole="button">
+        <Pressable
+          style={styles.cta}
+          onPress={() => router.push('/transfers')}
+          accessibilityRole="button"
+          accessibilityLabel="Build my squad"
+        >
           <Text style={styles.ctaText}>Build my squad →</Text>
         </Pressable>
       ) : null}
@@ -221,6 +240,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerAction: { minHeight: 44, justifyContent: 'center' },
   heroCard: { marginTop: spacing(3), backgroundColor: colors.bgAlt },
   liveCard: { borderColor: colors.live },
   cta: {

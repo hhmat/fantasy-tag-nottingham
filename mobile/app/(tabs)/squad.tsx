@@ -167,7 +167,7 @@ export default function SquadScreen() {
               <Text style={font.h1} numberOfLines={1}>{team?.name ?? '…'}</Text>
             )}
             {!editingName ? (
-              <Pressable onPress={() => setEditingName(true)} accessibilityRole="button" accessibilityLabel="Rename team" hitSlop={8}>
+              <Pressable onPress={() => setEditingName(true)} accessibilityRole="button" accessibilityLabel="Rename team" hitSlop={14}>
                 <Text style={{ fontSize: 18 }}>✏️</Text>
               </Pressable>
             ) : null}
@@ -180,7 +180,11 @@ export default function SquadScreen() {
 
           {/* Onboarding banner (until setup complete) */}
           {profile?.onboarding_step != null ? (
-            <Pressable onPress={() => router.push('/onboarding')} accessibilityRole="button">
+            <Pressable
+              onPress={() => router.push('/onboarding')}
+              accessibilityRole="button"
+              accessibilityLabel={`Finish setup, ${4 - profile.onboarding_step} steps remaining`}
+            >
               <Card style={styles.onboardCard}>
                 <Text style={[font.h3, { color: colors.accent }]}>
                   Finish setup — {4 - profile.onboarding_step} step{profile.onboarding_step === 3 ? '' : 's'} left →

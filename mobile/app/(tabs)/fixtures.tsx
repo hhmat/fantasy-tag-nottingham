@@ -44,6 +44,9 @@ export default function FixturesScreen() {
             <Pressable
               onPress={() => setSelectedGw(g.id)}
               style={[styles.chip, gwId === g.id && styles.chipActive]}
+              accessibilityRole="tab"
+              accessibilityLabel={`Show gameweek ${g.id}: ${g.name}`}
+              accessibilityState={{ selected: gwId === g.id }}
             >
               <Text style={[styles.chipText, gwId === g.id && { color: '#0B3D2E' }]}>GW{g.id}</Text>
             </Pressable>
@@ -103,6 +106,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
     marginRight: spacing(2),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontWeight: '700', fontSize: 12 },

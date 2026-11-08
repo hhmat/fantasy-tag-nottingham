@@ -185,7 +185,9 @@ export default function TransfersScreen() {
               key={f}
               onPress={() => setPosFilter(f)}
               style={[styles.chip, posFilter === f && styles.chipActive]}
-              accessibilityRole="button"
+              accessibilityRole="tab"
+              accessibilityLabel={`Filter ${f === 'All' ? 'all positions' : f}`}
+              accessibilityState={{ selected: posFilter === f }}
             >
               <Text style={[styles.chipText, posFilter === f && { color: '#0B3D2E' }]}>
                 {f === 'All' ? 'All' : f === 'Utility' ? 'Uti' : f.slice(0, 3)}
@@ -299,6 +301,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontWeight: '700', fontSize: 12 },
@@ -316,9 +320,9 @@ const styles = StyleSheet.create({
   swapOut: { color: colors.fall, fontWeight: '800', fontSize: 12 },
   addBtn: {
     backgroundColor: colors.accent,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

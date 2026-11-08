@@ -30,7 +30,12 @@ export default function AdminResultsScreen() {
         <>
           <SectionTitle>{currentGw?.name ?? 'Fixtures'}</SectionTitle>
           {fixtures.map((f) => (
-            <Pressable key={f.id} onPress={() => setSelected(f)}>
+            <Pressable
+              key={f.id}
+              onPress={() => setSelected(f)}
+              accessibilityRole="button"
+              accessibilityLabel={`Enter result and statistics for ${f.home_team_name} versus ${f.away_team_name}`}
+            >
               <Card>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={font.h3}>
@@ -146,6 +151,7 @@ function ScoreInput({ label, value, onChange }: { label: string; value: string; 
         keyboardType="number-pad"
         maxLength={2}
         style={styles.scoreInput}
+        accessibilityLabel={`${label} score`}
       />
     </View>
   );
@@ -187,13 +193,32 @@ function PlayerStatRow({ fixtureId, player }: { fixtureId: string; player: any }
       <MiniCounter label="T" value={tries} onChange={setTries} />
       <MiniCounter label="A" value={assists} onChange={setAssists} />
       <MiniCounter label="C" value={convs} onChange={setConvs} />
-      <Pressable onPress={() => setPom((v) => !v)} style={[styles.toggle, pom && styles.toggleOn]}>
+      <Pressable
+        onPress={() => setPom((v) => !v)}
+        style={[styles.toggle, pom && styles.toggleOn]}
+        accessibilityRole="checkbox"
+        accessibilityLabel={`${player.first_name} ${player.last_name}, player of the match`}
+        accessibilityState={{ checked: pom }}
+      >
         <Text style={styles.toggleText}>⭐</Text>
       </Pressable>
-      <Pressable onPress={() => setAttended((v) => !v)} style={[styles.toggle, attended && styles.toggleOn]}>
+      <Pressable
+        onPress={() => setAttended((v) => !v)}
+        style={[styles.toggle, attended && styles.toggleOn]}
+        accessibilityRole="checkbox"
+        accessibilityLabel={`${player.first_name} ${player.last_name}, attended`}
+        accessibilityState={{ checked: attended }}
+      >
         <Text style={styles.toggleText}>✓</Text>
       </Pressable>
-      <Pressable onPress={() => saveMut.mutate()} style={styles.saveBtn}>
+      <Pressable
+        onPress={() => saveMut.mutate()}
+        disabled={saveMut.isPending}
+        style={styles.saveBtn}
+        accessibilityRole="button"
+        accessibilityLabel={`Save statistics for ${player.first_name} ${player.last_name}`}
+        accessibilityState={{ disabled: saveMut.isPending, busy: saveMut.isPending }}
+      >
         <Text style={{ color: '#0B3D2E', fontWeight: '800', fontSize: 12 }}>
           {saveMut.isPending ? '…' : saveMut.isSuccess ? '✓' : 'Save'}
         </Text>
@@ -203,6 +228,7 @@ function PlayerStatRow({ fixtureId, player }: { fixtureId: string; player: any }
 }
 
 function MiniCounter({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const names: Record<string, string> = { T: 'Tries', A: 'Assists', C: 'Conversions' };
   return (
     <View style={{ alignItems: 'center', marginRight: spacing(1) }}>
       <Text style={[font.tiny, { fontSize: 9 }]}>{label}</Text>
@@ -212,6 +238,7 @@ function MiniCounter({ label, value, onChange }: { label: string; value: string;
         keyboardType="number-pad"
         maxLength={2}
         style={styles.miniInput}
+        accessibilityLabel={names[label] ?? label}
       />
     </View>
   );
@@ -225,12 +252,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     borderRadius: radius.sm,
     width: 72,
+    minHeight: 52,
     textAlign: 'center',
     paddingVertical: spacing(2),
     marginTop: spacing(1),
   },
   statRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: radius.sm,
@@ -244,26 +273,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardAlt,
     color: colors.text,
     borderRadius: 6,
-    width: 34,
+    width: 38,
+    minHeight: 44,
     textAlign: 'center',
     paddingVertical: 4,
     fontWeight: '700',
   },
   toggle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.cardAlt,
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.5,
   },
   toggleOn: { opacity: 1, backgroundColor: colors.accent },
-  toggleText: { fontSize: 13 },
+  toggleText: { fontSize: 16 },
   saveBtn: {
     backgroundColor: colors.accent,
     borderRadius: 6,
+    minWidth: 56,
+    minHeight: 44,
     paddingHorizontal: spacing(2),
     paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

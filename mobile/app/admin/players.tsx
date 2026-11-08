@@ -69,7 +69,13 @@ export default function AdminPlayersScreen() {
           showsHorizontalScrollIndicator={false}
           style={{ flexGrow: 0, marginVertical: spacing(2) }}
           renderItem={({ item: t }) => (
-            <Pressable onPress={() => setTeamId(t.id)} style={[styles.chip, teamId === t.id && styles.chipActive]}>
+            <Pressable
+              onPress={() => setTeamId(t.id)}
+              style={[styles.chip, teamId === t.id && styles.chipActive]}
+              accessibilityRole="tab"
+              accessibilityLabel={`Select team ${t.short_name}`}
+              accessibilityState={{ selected: teamId === t.id }}
+            >
               <Text style={[styles.chipText, teamId === t.id && { color: '#0B3D2E' }]}>{t.short_name}</Text>
             </Pressable>
           )}
@@ -79,7 +85,14 @@ export default function AdminPlayersScreen() {
         <Text style={font.tiny}>POSITION</Text>
         <View style={{ flexDirection: 'row', gap: spacing(2), marginVertical: spacing(2) }}>
           {POSITIONS.map((p) => (
-            <Pressable key={p} onPress={() => setPosition(p)} style={[styles.chip, position === p && styles.chipActive]}>
+            <Pressable
+              key={p}
+              onPress={() => setPosition(p)}
+              style={[styles.chip, position === p && styles.chipActive]}
+              accessibilityRole="tab"
+              accessibilityLabel={`Set position to ${p}`}
+              accessibilityState={{ selected: position === p }}
+            >
               <Text style={[styles.chipText, position === p && { color: '#0B3D2E' }]}>{p}</Text>
             </Pressable>
           ))}
@@ -124,6 +137,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
     marginRight: spacing(2),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontWeight: '700', fontSize: 12 },

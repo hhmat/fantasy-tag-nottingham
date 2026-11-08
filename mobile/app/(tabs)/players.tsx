@@ -38,6 +38,9 @@ export default function PlayersScreen() {
             <Pressable
               onPress={() => setTeamId(t.id)}
               style={[styles.chip, teamId === t.id && styles.chipActive]}
+              accessibilityRole="tab"
+              accessibilityLabel={t.id ? `Filter by ${t.short_name}` : 'Show all teams'}
+              accessibilityState={{ selected: teamId === t.id }}
             >
               <Text style={[styles.chipText, teamId === t.id && { color: '#0B3D2E' }]}>
                 {t.short_name}
@@ -57,6 +60,9 @@ export default function PlayersScreen() {
               key={key}
               onPress={() => setSortBy(key)}
               style={[styles.chip, sortBy === key && styles.chipActive]}
+              accessibilityRole="tab"
+              accessibilityLabel={`Sort players by ${label}`}
+              accessibilityState={{ selected: sortBy === key }}
             >
               <Text style={[styles.chipText, sortBy === key && { color: '#0B3D2E' }]}>{label}</Text>
             </Pressable>
@@ -95,6 +101,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(1.5),
     marginRight: spacing(2),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { color: colors.text, fontWeight: '700', fontSize: 12 },

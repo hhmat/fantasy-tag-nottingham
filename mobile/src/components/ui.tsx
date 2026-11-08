@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   TextInputProps,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,12 +23,17 @@ export function Screen({
   children: React.ReactNode;
   scroll?: boolean;
 }) {
+  const { width } = useWindowDimensions();
+  const desktop = Platform.OS === 'web' && width >= 768;
   const body = scroll ? (
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={[styles.scrollContent, desktop && styles.desktopContent]}
+      showsVerticalScrollIndicator={false}
+    >
       {children}
     </ScrollView>
   ) : (
-    <View style={styles.flex}>{children}</View>
+    <View style={[styles.flex, desktop && styles.desktopContent]}>{children}</View>
   );
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -71,6 +77,9 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: bg, opacity: pressed || disabled ? 0.6 : 1 },
@@ -93,6 +102,7 @@ export function Input(props: TextInputProps & { label?: string }) {
       {label ? <Text style={[font.tiny, { marginBottom: spacing(1) }]}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={colors.textMuted}
+        accessibilityLabel={label ?? rest.placeholder}
         style={[styles.input, style]}
         {...rest}
       />
@@ -127,6 +137,7 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
+  desktopContent: { width: '100%', maxWidth: 560, alignSelf: 'center' },
   scrollContent: { padding: spacing(4), paddingBottom: spacing(10) },
   card: {
     backgroundColor: colors.card,

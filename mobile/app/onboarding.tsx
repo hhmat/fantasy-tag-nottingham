@@ -168,7 +168,12 @@ export default function OnboardingScreen() {
         </View>
       ) : null}
 
-      <Pressable onPress={() => goTo(null)} style={styles.skipAll} accessibilityRole="button">
+      <Pressable
+        onPress={() => goTo(null)}
+        style={styles.skipAll}
+        accessibilityRole="button"
+        accessibilityLabel="Skip setup and explore the app"
+      >
         <Text style={font.tiny}>Skip setup — I'll explore on my own</Text>
       </Pressable>
     </Screen>
@@ -219,5 +224,5 @@ const styles = StyleSheet.create({
     padding: spacing(3),
     marginBottom: spacing(2),
   },
-  skipAll: { alignItems: 'center', marginTop: spacing(6) },
+  skipAll: { alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: spacing(6) },
 });

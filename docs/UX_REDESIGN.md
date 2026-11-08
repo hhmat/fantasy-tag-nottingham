@@ -2,7 +2,7 @@
 
 **Goal:** evolve the app from "functional fantasy tool" to a product that *feels* like Fantasy Premier League / Sleeper — while keeping the pitch-green identity, the five-tab skeleton, and every screen that already works.
 
-**Status:** design specification · implementation broken into steps at the end
+**Status:** implemented · steps 2.1–2.6 complete
 
 ---
 
