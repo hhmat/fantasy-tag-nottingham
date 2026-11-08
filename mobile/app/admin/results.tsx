@@ -11,6 +11,7 @@ import {
   getFixtures,
 } from '@/api/fixtures';
 import { Button, Card, Screen, SectionTitle } from '@/components/ui';
+import { MatchEventsAdmin } from '@/components/MatchEventsAdmin';
 import { colors, font, radius, spacing } from '@/theme';
 import type { Fixture } from '@/types';
 
@@ -135,6 +136,8 @@ function FixtureEditor({ fixture, onDone }: { fixture: Fixture; onDone: () => vo
       {awayPlayers.map((p: any) => (
         <PlayerStatRow key={p.id} fixtureId={fixture.id} player={p} />
       ))}
+
+      <MatchEventsAdmin fixture={fixture} homePlayers={homePlayers} awayPlayers={awayPlayers} />
 
       <Button title="← Back to fixtures" variant="ghost" onPress={onDone} />
     </View>

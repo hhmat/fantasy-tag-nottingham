@@ -1,7 +1,7 @@
 // Players & teams API
 import { supabase } from '@/lib/supabase';
 import { computePoints } from '@/lib/scoring';
-import type { Player, PlayerSeasonStats, PriceChange, Team } from '@/types';
+import type { Player, PlayerMatchLogEntry, PlayerProfile, PlayerSeasonStats, PriceChange, Team } from '@/types';
 
 export async function getTeams(): Promise<Team[]> {
   const { data, error } = await supabase.from('teams').select('*').order('name');
@@ -33,14 +33,14 @@ export async function getPlayers(opts?: {
   return data as PlayerSeasonStats[];
 }
 
-export async function getPlayer(id: string): Promise<PlayerSeasonStats> {
-  const { data, error } = await supabase
-    .from('v_player_season_stats')
-    .select('*')
-    .eq('player_id', id)
-    .single();
+export async function getPlayer(id: string): Promise<PlayerProfile> {
+  const [{ data, error }, { data: photo, error: photoError }] = await Promise.all([
+    supabase.from('v_player_season_stats').select('*').eq('player_id', id).single(),
+    supabase.from('players').select('photo_url').eq('id', id).single(),
+  ]);
   if (error) throw error;
-  return data as PlayerSeasonStats;
+  if (photoError) throw photoError;
+  return { ...(data as PlayerSeasonStats), photo_url: photo.photo_url };
 }
 
 export async function getPlayerPriceHistory(playerId: string): Promise<PriceChange[]> {
@@ -54,14 +54,19 @@ export async function getPlayerPriceHistory(playerId: string): Promise<PriceChan
   return data as PriceChange[];
 }
 
-export async function getPlayerMatchLog(playerId: string) {
+export async function getPlayerMatchLog(playerId: string): Promise<PlayerMatchLogEntry[]> {
   const { data, error } = await supabase
     .from('player_match_stats')
-    .select('*, fixtures!inner(gameweek_id, kickoff, home_team_id, away_team_id, status)')
-    .eq('player_id', playerId)
-    .order('created_at', { ascending: false });
+    .select(`*, fixtures!inner(
+      gameweek_id, kickoff, status, home_score, away_score,
+      home_team:teams!fixtures_home_team_id_fkey(id, name, short_name),
+      away_team:teams!fixtures_away_team_id_fkey(id, name, short_name)
+    )`)
+    .eq('player_id', playerId);
   if (error) throw error;
-  return data;
+  return ((data ?? []) as unknown as PlayerMatchLogEntry[]).sort(
+    (a, b) => b.fixtures.kickoff.localeCompare(a.fixtures.kickoff),
+  );
 }
 
 /**

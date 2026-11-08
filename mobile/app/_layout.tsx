@@ -3,6 +3,7 @@ import React from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/store/AuthContext';
 import { routeFromResponse } from '@/lib/notificationRouter';
@@ -33,7 +34,8 @@ function RootNavigator() {
 
   // Push-notification tap routing (requires a signed-in session)
   React.useEffect(() => {
-    if (loading || !session) return;
+    // expo-notifications response APIs are native-only. Web uses normal links.
+    if (loading || !session || Platform.OS === 'web') return;
 
     // Warm start: app was open/backgrounded when the user tapped
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -63,6 +65,7 @@ function RootNavigator() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="player/[id]" options={{ title: 'Player' }} />
       <Stack.Screen name="team/[id]" options={{ title: 'Team' }} />
+      <Stack.Screen name="match/[id]" options={{ title: 'Match Centre' }} />
       <Stack.Screen name="league/[id]" options={{ title: 'League' }} />
       <Stack.Screen name="transfers" options={{ title: 'Squad Builder', presentation: 'modal' }} />
       <Stack.Screen name="auth/callback" options={{ headerShown: false }} />

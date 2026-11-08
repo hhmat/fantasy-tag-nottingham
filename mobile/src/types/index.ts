@@ -78,6 +78,55 @@ export interface PlayerMatchStats {
   attended: boolean;
 }
 
+export interface PlayerProfile extends PlayerSeasonStats {
+  photo_url: string | null;
+}
+
+export interface MatchTeam {
+  id: string;
+  name: string;
+  short_name: string;
+}
+
+export interface PlayerMatchLogEntry extends PlayerMatchStats {
+  fixtures: {
+    gameweek_id: number;
+    kickoff: string;
+    status: FixtureStatus;
+    home_score: number | null;
+    away_score: number | null;
+    home_team: MatchTeam;
+    away_team: MatchTeam;
+  };
+}
+
+export type MatchEventType = 'try' | 'assist' | 'conversion' | 'player_of_match';
+
+export interface MatchEvent {
+  id: string;
+  fixture_id: string;
+  player_id: string;
+  team_id: string;
+  event_type: MatchEventType;
+  minute: number | null;
+  occurred_at: string;
+  created_at: string;
+  players: {
+    first_name: string;
+    last_name: string;
+    team_id: string;
+  };
+}
+
+export interface MatchPerformance extends PlayerMatchStats {
+  players: {
+    first_name: string;
+    last_name: string;
+    position: Position;
+    team_id: string;
+  };
+}
+
 export interface Profile {
   id: string;
   display_name: string;

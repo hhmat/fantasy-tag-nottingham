@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { getCurrentGameweek, getFixtures, getGameweeks, subscribeToLiveScores } from '@/api/fixtures';
 import { Badge, Screen } from '@/components/ui';
 import { colors, font, radius, spacing } from '@/theme';
@@ -70,10 +71,16 @@ export default function FixturesScreen() {
 }
 
 function FixtureCard({ fixture: f }: { fixture: Fixture }) {
+  const router = useRouter();
   const played = f.status === 'finished';
   const live = f.status === 'live';
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={() => router.push(`/match/${f.id}`)}
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open Match Centre: ${f.home_team_name} versus ${f.away_team_name}`}
+    >
       <View style={styles.cardHeader}>
         <Text style={font.tiny}>
           {new Date(f.kickoff).toLocaleString('en-GB', {
@@ -93,7 +100,8 @@ function FixtureCard({ fixture: f }: { fixture: Fixture }) {
         </View>
         <Text style={[styles.team, { textAlign: 'left' }]}>{f.away_team_name}</Text>
       </View>
-    </View>
+      <Text style={[font.tiny, styles.matchLink]}>Match Centre ›</Text>
+    </Pressable>
   );
 }
 
@@ -136,4 +144,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   score: { color: colors.accent, fontWeight: '800', fontSize: 16 },
+  matchLink: { color: colors.accent, textAlign: 'right', marginTop: spacing(2) },
 });
