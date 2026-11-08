@@ -69,10 +69,15 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
+// 0007 intentionally removes table-wide SELECT so expo_push_token stays
+// private. SELECT * would still request that protected column and fail with
+// PostgreSQL 42501, so always name the client-readable columns explicitly.
+const PROFILE_COLUMNS = 'id, display_name, is_admin, avatar_url, created_at, onboarding_step';
+
 export async function getProfile(userId: string): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PROFILE_COLUMNS)
     .eq('id', userId)
     .single();
   if (error) throw error;

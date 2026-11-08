@@ -131,7 +131,8 @@ export interface Profile {
   id: string;
   display_name: string;
   is_admin: boolean;
-  expo_push_token: string | null;
+  /** Deliberately never selected by the client; notification registration writes it directly. */
+  expo_push_token?: never;
   avatar_url: string | null;
   /** 0–3 while onboarding is in progress, null once done. */
   onboarding_step?: number | null;
