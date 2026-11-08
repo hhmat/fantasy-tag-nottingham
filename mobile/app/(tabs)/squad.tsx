@@ -1,6 +1,7 @@
-// My Squad — roster, captain selection, budget, points, transfer entry point.
+// My Squad 2.0 — position-grouped roster, captain armband, lock chip,
+// budget/rank strip, bottom-anchored transfers CTA. (UX redesign step 2.3)
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/store/AuthContext';
@@ -14,11 +15,16 @@ import {
   renameFantasyTeam,
   setCaptainForGameweek,
 } from '@/api/fantasy';
-import { getCurrentGameweek } from '@/api/fixtures';
-import { Button, EmptyState, Screen, SectionTitle } from '@/components/ui';
+import { getOpenGameweek } from '@/api/fixtures';
+import { getGlobalLeaderboard } from '@/api/leagues';
+import { Button, Card, EmptyState, Screen } from '@/components/ui';
+import { DeadlineChip, RankBadge } from '@/components/fantasy';
 import { PlayerRow } from '@/components/PlayerRow';
 import { formatMoney, SQUAD_RULES } from '@/lib/scoring';
 import { colors, font, radius, spacing } from '@/theme';
+import type { SquadPlayer } from '@/types';
+
+const POSITION_GROUPS = ['Forward', 'Back', 'Utility'] as const;
 
 export default function SquadScreen() {
   const { session } = useAuth();
@@ -32,7 +38,7 @@ export default function SquadScreen() {
     queryFn: () => getMyFantasyTeam(session!.user.id),
     enabled: !!session,
   });
-  const { data: gameweek } = useQuery({ queryKey: ['current-gw'], queryFn: getCurrentGameweek });
+  const { data: gameweek } = useQuery({ queryKey: ['open-gw'], queryFn: getOpenGameweek });
   const { data: squad = [] } = useQuery({
     queryKey: ['squad', team?.id, gameweek?.id],
     queryFn: () => getSquad(team!.id, gameweek?.id),
@@ -43,6 +49,7 @@ export default function SquadScreen() {
     queryFn: () => getSquadTotalPoints(team!.id),
     enabled: !!team,
   });
+  const { data: board = [] } = useQuery({ queryKey: ['global-board'], queryFn: () => getGlobalLeaderboard(100) });
   const { data: transfersUsed = [] } = useQuery({
     queryKey: ['transfers', team?.id, gameweek?.id],
     queryFn: () => getTransfersThisGameweek(team!.id, gameweek!.id),
@@ -99,101 +106,164 @@ export default function SquadScreen() {
 
   const spend = squad.reduce((a, s) => a + s.purchase_price, 0);
   const remaining = (team?.budget ?? SQUAD_RULES.budget) - spend;
+  const freeLeft = freeTransfersRemaining(transfersUsed.length);
+  const myRank = board.find((r) => r.fantasy_team_id === team?.id)?.rank;
+  const locked = gameweek ? Date.now() > new Date(gameweek.deadline).getTime() : false;
+
+  const grouped = POSITION_GROUPS.map((pos) => ({
+    pos,
+    players: squad.filter((s) => s.player.position === pos),
+  })).filter((g) => g.players.length > 0);
+
+  function handlePlayerTap(s: SquadPlayer) {
+    if (locked) {
+      Alert.alert(
+        `${s.player.first_name} ${s.player.last_name}`,
+        'Squads are locked until results are finalised.',
+        [{ text: 'View profile', onPress: () => router.push(`/player/${s.player_id}`) },
+         { text: 'OK', style: 'cancel' }],
+      );
+      return;
+    }
+    Alert.alert(
+      `${s.player.first_name} ${s.player.last_name}`,
+      s.is_captain ? 'Remove captaincy?' : 'Make captain? (double points)',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: s.is_captain ? 'Remove C' : 'Make captain',
+          onPress: () => {
+            if (!gameweek) return Alert.alert('Still loading', 'Try again in a moment.');
+            captainMut.mutate({ rowId: s.id, isCaptain: !s.is_captain });
+          },
+        },
+        { text: 'View profile', onPress: () => router.push(`/player/${s.player_id}`) },
+      ],
+    );
+  }
 
   return (
-    <Screen>
-      <Pressable onLongPress={() => setEditingName(true)}>
-        <Text style={font.h1}>{team?.name ?? '…'}</Text>
-      </Pressable>
-      {editingName ? (
-        <View style={{ flexDirection: 'row', gap: spacing(2), alignItems: 'center' }}>
-          <TextInput
-            defaultValue={team?.name}
-            onSubmitEditing={async (e) => {
-              try {
-                await renameFantasyTeam(team!.id, e.nativeEvent.text.trim());
-                setEditingName(false);
-                invalidate();
-              } catch (err: any) {
-                Alert.alert('Rename failed', err.message);
-              }
-            }}
-            autoFocus
-            style={[styles.nameInput, { flex: 1, marginTop: spacing(2) }]}
+    <Screen scroll={false}>
+      <View style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Header: name + stats strip */}
+          <View style={styles.headerRow}>
+            {editingName ? (
+              <TextInput
+                defaultValue={team?.name}
+                onSubmitEditing={async (e) => {
+                  try {
+                    await renameFantasyTeam(team!.id, e.nativeEvent.text.trim());
+                    setEditingName(false);
+                    invalidate();
+                  } catch (err: any) {
+                    Alert.alert('Rename failed', err.message);
+                  }
+                }}
+                autoFocus
+                style={[styles.nameInput, { flex: 1, marginTop: 0 }]}
+              />
+            ) : (
+              <Text style={font.h1} numberOfLines={1}>{team?.name ?? '…'}</Text>
+            )}
+            {!editingName ? (
+              <Pressable onPress={() => setEditingName(true)} accessibilityRole="button" accessibilityLabel="Rename team" hitSlop={8}>
+                <Text style={{ fontSize: 18 }}>✏️</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(3) }}>
+            <Text style={font.muted}>{totalPoints} pts</Text>
+            <RankBadge rank={myRank} />
+            <Text style={font.muted}>{formatMoney(Math.max(0, remaining))} bank</Text>
+          </View>
+
+          {/* Lock / transfers status */}
+          {gameweek ? (
+            <Card style={styles.lockCard}>
+              <View style={styles.lockRow}>
+                <DeadlineChip deadline={gameweek.deadline} />
+                <Text style={font.muted}>
+                  {locked
+                    ? 'Changes reopen when results are finalised'
+                    : `${freeLeft} free transfer${freeLeft === 1 ? '' : 's'} left · ${gameweek.name}`}
+                </Text>
+              </View>
+            </Card>
+          ) : null}
+
+          {/* Grouped roster */}
+          {squad.length === 0 ? (
+            <EmptyState emoji="🫥" title="No tags yet"
+              subtitle="Open the squad builder below to pick your 10." />
+          ) : (
+            grouped.map((g) => (
+              <View key={g.pos}>
+                <Text style={styles.groupTitle}>{g.pos.toUpperCase()}S</Text>
+                {g.players.map((s) => (
+                  <PlayerRow
+                    key={s.id}
+                    name={`${s.player.first_name} ${s.player.last_name}`}
+                    teamShort={s.player.team_short}
+                    position={s.player.position}
+                    price={s.purchase_price}
+                    isCaptain={s.is_captain}
+                    onPress={() => handlePlayerTap(s)}
+                  />
+                ))}
+              </View>
+            ))
+          )}
+
+          <Text style={[font.tiny, { textAlign: 'center', marginTop: spacing(2) }]}>
+            {locked
+              ? '🔒 Locked — captain changes reopen after results.'
+              : 'Tap a player to set the captain (scores double).'}
+          </Text>
+        </ScrollView>
+
+        {/* Bottom-anchored CTA */}
+        <View style={styles.footer}>
+          <Button
+            title={
+              squad.length < SQUAD_RULES.size
+                ? `Pick your squad (${squad.length}/${SQUAD_RULES.size})`
+                : freeLeft > 0
+                  ? `Make transfers (${freeLeft} free)`
+                  : 'Make transfers (−4 pts each)'
+            }
+            onPress={() => router.push('/transfers')}
           />
         </View>
-      ) : null}
-
-      {/* Summary strip */}
-      <View style={styles.strip}>
-        <Stat label="Total pts" value={String(totalPoints)} />
-        <Stat label="Squad" value={`${squad.length}/${SQUAD_RULES.size}`} />
-        <Stat label="In the bank" value={formatMoney(Math.max(0, remaining))} />
-        <Stat label="Free transfers" value={String(freeTransfersRemaining(transfersUsed.length))} />
       </View>
-
-      <Button title="Manage squad / transfers" variant="secondary" onPress={() => router.push('/transfers')} />
-
-      <SectionTitle>Starting squad</SectionTitle>
-      {squad.length === 0 ? (
-        <EmptyState emoji="🫥" title="No players yet" subtitle="Open the squad builder to pick your 10." />
-      ) : (
-        squad.map((s) => (
-          <PlayerRow
-            key={s.id}
-            name={`${s.player.first_name} ${s.player.last_name}`}
-            teamShort={s.player.team_short}
-            position={s.player.position}
-            price={s.purchase_price}
-            isCaptain={s.is_captain}
-            onPress={() =>
-              Alert.alert(
-                `${s.player.first_name} ${s.player.last_name}`,
-                s.is_captain ? 'Remove captaincy?' : 'Make captain? (double points)',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: s.is_captain ? 'Remove C' : 'Make captain',
-                    onPress: () => {
-                      if (!gameweek) return Alert.alert('Still loading', 'Try again in a moment.');
-                      captainMut.mutate({ rowId: s.id, isCaptain: !s.is_captain });
-                    },
-                  },
-                  {
-                    text: 'View profile',
-                    onPress: () => router.push(`/player/${s.player_id}`),
-                  },
-                ],
-              )
-            }
-          />
-        ))
-      )}
-      <Text style={[font.tiny, { textAlign: 'center', marginTop: spacing(2) }]}>
-        Tap a player to set the captain (scores double). Long-press the team name to rename.
-      </Text>
     </Screen>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={{ alignItems: 'center', flex: 1 }}>
-      <Text style={{ color: colors.accent, fontWeight: '800', fontSize: 18 }}>{value}</Text>
-      <Text style={font.tiny}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  strip: {
+  flex: { flex: 1 },
+  scroll: { padding: spacing(4), paddingBottom: spacing(4) },
+  headerRow: {
     flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing(3),
-    marginTop: spacing(3),
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing(2),
+  },
+  lockCard: { marginTop: spacing(3), paddingVertical: spacing(3) },
+  lockRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(3) },
+  groupTitle: {
+    ...font.tiny,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: spacing(4),
+    marginBottom: spacing(2),
+  },
+  footer: {
+    padding: spacing(4),
+    paddingTop: spacing(2),
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
   },
   nameInput: {
     backgroundColor: colors.card,
@@ -204,5 +274,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(3),
     paddingVertical: spacing(3),
     fontSize: 16,
+    marginTop: spacing(2),
   },
 });
