@@ -12,7 +12,7 @@ import {
   getTransfersThisGameweek,
   freeTransfersRemaining,
   renameFantasyTeam,
-  setCaptain,
+  setCaptainForGameweek,
 } from '@/api/fantasy';
 import { getCurrentGameweek } from '@/api/fixtures';
 import { Button, EmptyState, Screen, SectionTitle } from '@/components/ui';
@@ -34,8 +34,8 @@ export default function SquadScreen() {
   });
   const { data: gameweek } = useQuery({ queryKey: ['current-gw'], queryFn: getCurrentGameweek });
   const { data: squad = [] } = useQuery({
-    queryKey: ['squad', team?.id],
-    queryFn: () => getSquad(team!.id),
+    queryKey: ['squad', team?.id, gameweek?.id],
+    queryFn: () => getSquad(team!.id, gameweek?.id),
     enabled: !!team,
   });
   const { data: totalPoints = 0 } = useQuery({
@@ -62,7 +62,12 @@ export default function SquadScreen() {
 
   const captainMut = useMutation({
     mutationFn: ({ rowId, isCaptain }: { rowId: string; isCaptain: boolean }) =>
-      setCaptain(team!.id, rowId, isCaptain),
+      setCaptainForGameweek({
+        teamId: team!.id,
+        squadRowId: rowId,
+        gameweekId: gameweek!.id,
+        makeCaptain: isCaptain,
+      }),
     onSuccess: invalidate,
     onError: (e: any) => Alert.alert('Captain change failed', e.message),
   });
@@ -149,7 +154,10 @@ export default function SquadScreen() {
                   { text: 'Cancel', style: 'cancel' },
                   {
                     text: s.is_captain ? 'Remove C' : 'Make captain',
-                    onPress: () => captainMut.mutate({ rowId: s.id, isCaptain: !s.is_captain }),
+                    onPress: () => {
+                      if (!gameweek) return Alert.alert('Still loading', 'Try again in a moment.');
+                      captainMut.mutate({ rowId: s.id, isCaptain: !s.is_captain });
+                    },
                   },
                   {
                     text: 'View profile',

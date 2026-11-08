@@ -28,21 +28,36 @@ export async function renameFantasyTeam(teamId: string, name: string) {
   if (error) throw error;
 }
 
-export async function getSquad(teamId: string): Promise<SquadPlayer[]> {
-  const { data, error } = await supabase
+export async function getSquad(teamId: string, gameweekId?: number): Promise<SquadPlayer[]> {
+  const squadQuery = supabase
     .from('fantasy_team_players')
     .select(`id, player_id, is_captain, is_active, purchase_price, added_gameweek,
              player:players!inner(id, team_id, first_name, last_name, position, price,
-                                teams!inner(name, short_name))`)
+                              teams!inner(name, short_name))`)
     .eq('fantasy_team_id', teamId)
     .eq('is_active', true)
     .order('is_captain', { ascending: false });
+
+  const pickQuery = gameweekId
+    ? supabase
+        .from('captain_picks')
+        .select('squad_row_id')
+        .eq('fantasy_team_id', teamId)
+        .eq('gameweek_id', gameweekId)
+        .maybeSingle()
+    : Promise.resolve({ data: null, error: null } as const);
+
+  const [{ data, error }, pickRes] = await Promise.all([squadQuery, pickQuery]);
   if (error) throw error;
+  if (pickRes.error) throw pickRes.error;
+  const captainRowId = pickRes.data?.squad_row_id ?? null;
 
   return (data ?? []).map((row: any) => ({
     id: row.id,
     player_id: row.player_id,
-    is_captain: row.is_captain,
+    // Captain for the open gameweek comes from captain_picks; fall back to
+    // the legacy flag when no pick exists for that gameweek.
+    is_captain: captainRowId ? row.id === captainRowId : row.is_captain,
     is_active: row.is_active,
     purchase_price: row.purchase_price,
     added_gameweek: row.added_gameweek,
@@ -81,26 +96,40 @@ export async function getSquadTotalPoints(teamId: string): Promise<number> {
   return (data ?? []).reduce((a: number, r: any) => a + r.points, 0);
 }
 
-/** Set (or unset) captain. Postgres trigger enforces a single captain. */
-export async function setCaptain(teamId: string, squadRowId: string, isCaptain: boolean) {
-  if (isCaptain) {
-    const { error: clearErr } = await supabase
-      .from('fantasy_team_players')
-      .update({ is_captain: false })
+/**
+ * Set (or unset) the captain for a specific open gameweek.
+ * Captaincy is recorded per gameweek (captain_picks), so changing it never
+ * rewrites past gameweeks' points. The DB rejects changes after the deadline.
+ */
+export async function setCaptainForGameweek(opts: {
+  teamId: string;
+  squadRowId: string;
+  gameweekId: number;
+  makeCaptain: boolean;
+}) {
+  const { teamId, squadRowId, gameweekId, makeCaptain } = opts;
+  if (makeCaptain) {
+    const { error } = await supabase
+      .from('captain_picks')
+      .upsert(
+        { fantasy_team_id: teamId, gameweek_id: gameweekId, squad_row_id: squadRowId },
+        { onConflict: 'fantasy_team_id,gameweek_id' },
+      );
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('captain_picks')
+      .delete()
       .eq('fantasy_team_id', teamId)
-      .eq('is_active', true);
-    if (clearErr) throw clearErr;
+      .eq('gameweek_id', gameweekId)
+      .eq('squad_row_id', squadRowId);
+    if (error) throw error;
   }
-  const { error } = await supabase
-    .from('fantasy_team_players')
-    .update({ is_captain: isCaptain })
-    .eq('id', squadRowId);
-  if (error) throw error;
 }
 
 /**
  * Add a player to the squad. Used both for initial picks (playerOutId = null)
- * and transfers in. Budget/team-cap rules are enforced server-side.
+ * and transfers in. Budget/team-cap/deadline rules are enforced server-side.
  */
 export async function addPlayerToSquad(opts: {
   fantasyTeamId: string;
