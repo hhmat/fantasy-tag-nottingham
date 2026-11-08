@@ -1,20 +1,35 @@
 // Fixtures — gameweek picker, live scores via Supabase Realtime.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { getCurrentGameweek, getFixtures, getGameweeks, subscribeToLiveScores } from '@/api/fixtures';
 import { Badge, Screen } from '@/components/ui';
 import { colors, font, radius, spacing } from '@/theme';
-import type { Fixture } from '@/types';
+import type { Fixture, Gameweek } from '@/types';
 
 export default function FixturesScreen() {
   const qc = useQueryClient();
+  const gwListRef = useRef<FlatList<Gameweek>>(null);
   const { data: gameweeks = [] } = useQuery({ queryKey: ['gameweeks'], queryFn: getGameweeks });
   const { data: currentGw } = useQuery({ queryKey: ['current-gw'], queryFn: getCurrentGameweek });
   const [selectedGw, setSelectedGw] = useState<number | null>(null);
 
   const gwId = selectedGw ?? currentGw?.id ?? gameweeks[0]?.id;
+  const selectedIndex = gameweeks.findIndex((g) => g.id === gwId);
+
+  const goToGameweek = (index: number) => {
+    if (index < 0 || index >= gameweeks.length) return;
+    setSelectedGw(gameweeks[index].id);
+  };
+
+  useEffect(() => {
+    if (selectedIndex < 0) return;
+    const frame = requestAnimationFrame(() => {
+      gwListRef.current?.scrollToIndex({ index: selectedIndex, animated: true, viewPosition: 0.5 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selectedIndex]);
 
   const { data: fixtures = [] } = useQuery({
     queryKey: ['fixtures', gwId],
@@ -35,24 +50,66 @@ export default function FixturesScreen() {
     <Screen scroll={false}>
       <View style={{ padding: spacing(4), paddingBottom: 0, flex: 1 }}>
         {/* Gameweek picker */}
-        <FlatList
-          horizontal
-          data={gameweeks}
-          keyExtractor={(g) => String(g.id)}
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, marginBottom: spacing(3) }}
-          renderItem={({ item: g }) => (
-            <Pressable
-              onPress={() => setSelectedGw(g.id)}
-              style={[styles.chip, gwId === g.id && styles.chipActive]}
-              accessibilityRole="tab"
-              accessibilityLabel={`Show gameweek ${g.id}: ${g.name}`}
-              accessibilityState={{ selected: gwId === g.id }}
-            >
-              <Text style={[styles.chipText, gwId === g.id && { color: '#0B3D2E' }]}>GW{g.id}</Text>
-            </Pressable>
-          )}
-        />
+        <View style={styles.gameweekPicker}>
+          <Pressable
+            onPress={() => goToGameweek(selectedIndex - 1)}
+            disabled={selectedIndex <= 0}
+            style={({ pressed }) => [
+              styles.arrowButton,
+              styles.previousButton,
+              selectedIndex <= 0 && styles.arrowButtonDisabled,
+              pressed && styles.arrowButtonPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Previous gameweek"
+            accessibilityState={{ disabled: selectedIndex <= 0 }}
+          >
+            <Text style={styles.arrowText}>‹</Text>
+          </Pressable>
+
+          <FlatList
+            ref={gwListRef}
+            horizontal
+            data={gameweeks}
+            keyExtractor={(g) => String(g.id)}
+            showsHorizontalScrollIndicator={false}
+            style={styles.gameweekList}
+            onScrollToIndexFailed={({ index, averageItemLength }) => {
+              gwListRef.current?.scrollToOffset({
+                offset: Math.max(0, index * (averageItemLength || 64) - 120),
+                animated: true,
+              });
+            }}
+            renderItem={({ item: g, index }) => (
+              <Pressable
+                onPress={() => goToGameweek(index)}
+                style={[styles.chip, gwId === g.id && styles.chipActive]}
+                accessibilityRole="tab"
+                accessibilityLabel={`Show gameweek ${g.id}: ${g.name}`}
+                accessibilityState={{ selected: gwId === g.id }}
+                aria-selected={gwId === g.id}
+              >
+                <Text style={[styles.chipText, gwId === g.id && { color: '#0B3D2E' }]}>GW{g.id}</Text>
+              </Pressable>
+            )}
+          />
+
+          <Pressable
+            onPress={() => goToGameweek(selectedIndex + 1)}
+            disabled={selectedIndex < 0 || selectedIndex >= gameweeks.length - 1}
+            style={({ pressed }) => [
+              styles.arrowButton,
+              styles.nextButton,
+              (selectedIndex < 0 || selectedIndex >= gameweeks.length - 1) && styles.arrowButtonDisabled,
+              pressed && styles.arrowButtonPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Next gameweek"
+            accessibilityState={{ disabled: selectedIndex < 0 || selectedIndex >= gameweeks.length - 1 }}
+          >
+            <Text style={styles.arrowText}>›</Text>
+          </Pressable>
+        </View>
 
         <FlatList
           data={fixtures}
@@ -106,6 +163,27 @@ function FixtureCard({ fixture: f }: { fixture: Fixture }) {
 }
 
 const styles = StyleSheet.create({
+  gameweekPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing(3),
+  },
+  gameweekList: { flexGrow: 0, flexShrink: 1 },
+  arrowButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previousButton: { marginRight: spacing(1) },
+  nextButton: { marginLeft: spacing(1) },
+  arrowButtonDisabled: { opacity: 0.35 },
+  arrowButtonPressed: { opacity: 0.7 },
+  arrowText: { color: colors.text, fontSize: 30, lineHeight: 32, marginTop: -2 },
   chip: {
     backgroundColor: colors.card,
     borderRadius: radius.full,
