@@ -15,6 +15,7 @@ export function PlayerRow({
   price,
   points,
   isCaptain = false,
+  isViceCaptain = false,
   isPom = false,
   form,
   priceDelta,
@@ -28,6 +29,7 @@ export function PlayerRow({
   price?: number;
   points?: number;
   isCaptain?: boolean;
+  isViceCaptain?: boolean;
   /** Player of the Match badge (⭐) */
   isPom?: boolean;
   /** Last N gameweek point totals, oldest → newest */
@@ -52,7 +54,7 @@ export function PlayerRow({
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={`${name}, ${position}, ${teamShort}${price != null ? `, ${formatMoney(price)}` : ''}${points != null ? `, ${points} points` : ''}`}
+      accessibilityLabel={`${name}, ${position}, ${teamShort}${price != null ? `, ${formatMoney(price)}` : ''}${points != null ? `, ${points} points` : ''}${isCaptain ? ', captain' : ''}${isViceCaptain ? ', vice-captain' : ''}`}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{teamShort.slice(0, 3)}</Text>
@@ -63,6 +65,7 @@ export function PlayerRow({
             {name}
           </Text>
           {isCaptain ? <ArmbandIcon kind="captain" /> : null}
+          {isViceCaptain ? <ArmbandIcon kind="vice" /> : null}
           {isPom ? <ArmbandIcon kind="pom" /> : null}
         </View>
         <Text style={font.tiny}>{subtitle}</Text>

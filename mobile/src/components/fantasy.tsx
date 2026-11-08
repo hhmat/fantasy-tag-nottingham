@@ -109,12 +109,13 @@ export function PriceArrow({ delta }: { delta?: number | null }) {
 }
 
 // ---------------------------------------------------------------------------
-// ArmbandIcon — captain © / POTM ⭐ badges.
+// ArmbandIcon — captain C / vice-captain V / POTM ⭐ badges.
 // ---------------------------------------------------------------------------
-export function ArmbandIcon({ kind }: { kind: 'captain' | 'pom' }) {
+export function ArmbandIcon({ kind }: { kind: 'captain' | 'vice' | 'pom' }) {
+  const label = kind === 'captain' ? 'Captain' : kind === 'vice' ? 'Vice-captain' : 'Player of the match';
   return (
-    <View style={styles.armband} accessibilityLabel={kind === 'captain' ? 'Captain' : 'Player of the match'}>
-      <Text style={styles.armbandText}>{kind === 'captain' ? '©' : '⭐'}</Text>
+    <View style={[styles.armband, kind === 'vice' && styles.viceArmband]} accessibilityLabel={label}>
+      <Text style={styles.armbandText}>{kind === 'captain' ? 'C' : kind === 'vice' ? 'V' : '⭐'}</Text>
     </View>
   );
 }
@@ -162,6 +163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  viceArmband: { backgroundColor: '#C7D2D9' },
   armbandText: { fontSize: 13, fontWeight: '800', color: '#0B3D2E' },
   budgetTrack: {
     height: 10,

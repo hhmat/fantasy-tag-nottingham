@@ -56,7 +56,7 @@ export async function getSquad(teamId: string, gameweekId?: number): Promise<Squ
   const pickQuery = gameweekId
     ? supabase
         .from('captain_picks')
-        .select('squad_row_id')
+        .select('squad_row_id, vice_squad_row_id')
         .eq('fantasy_team_id', teamId)
         .eq('gameweek_id', gameweekId)
         .maybeSingle()
@@ -64,15 +64,31 @@ export async function getSquad(teamId: string, gameweekId?: number): Promise<Squ
 
   const [{ data, error }, pickRes] = await Promise.all([squadQuery, pickQuery]);
   if (error) throw error;
-  if (pickRes.error) throw pickRes.error;
-  const captainRowId = pickRes.data?.squad_row_id ?? null;
+  let pickData: any = pickRes.data;
+  if (pickRes.error?.code === '42703' && gameweekId) {
+    // Graceful pre-0013 fallback: captaincy keeps working before the vice
+    // column is deployed. Remove this retry once 0013 is everywhere.
+    const legacy = await supabase
+      .from('captain_picks')
+      .select('squad_row_id')
+      .eq('fantasy_team_id', teamId)
+      .eq('gameweek_id', gameweekId)
+      .maybeSingle();
+    if (legacy.error) throw legacy.error;
+    pickData = legacy.data;
+  } else if (pickRes.error) {
+    throw pickRes.error;
+  }
+  const captainRowId = pickData?.squad_row_id ?? null;
+  const viceRowId = pickData?.vice_squad_row_id ?? null;
 
   return (data ?? []).map((row: any) => ({
     id: row.id,
     player_id: row.player_id,
-    // Captain for the open gameweek comes from captain_picks; fall back to
-    // the legacy flag when no pick exists for that gameweek.
-    is_captain: captainRowId ? row.id === captainRowId : row.is_captain,
+    // A captain_picks row is authoritative for this GW, even when its captain
+    // is null. Only older GWs without a row use the legacy captain flag.
+    is_captain: pickData ? row.id === captainRowId : row.is_captain,
+    is_vice_captain: pickData ? row.id === viceRowId : false,
     is_active: row.is_active,
     purchase_price: row.purchase_price,
     added_gameweek: row.added_gameweek,
@@ -111,35 +127,44 @@ export async function getSquadTotalPoints(teamId: string): Promise<number> {
   return (data ?? []).reduce((a: number, r: any) => a + r.points, 0);
 }
 
-/**
- * Set (or unset) the captain for a specific open gameweek.
- * Captaincy is recorded per gameweek (captain_picks), so changing it never
- * rewrites past gameweeks' points. The DB rejects changes after the deadline.
- */
+export type CaptaincyRole = 'captain' | 'vice';
+
+/** Atomically set/remove C or V for one open gameweek. The server clears the
+ * opposite armband if the same player holds it and enforces squad ownership,
+ * active membership, and both the global and gameweek-specific deadlines. */
+export async function setCaptaincyForGameweek(opts: {
+  teamId: string;
+  squadRowId: string;
+  gameweekId: number;
+  role: CaptaincyRole;
+  selected: boolean;
+}) {
+  const { error } = await supabase.rpc('set_captaincy', {
+    p_fantasy_team_id: opts.teamId,
+    p_gameweek_id: opts.gameweekId,
+    p_squad_row_id: opts.squadRowId,
+    p_role: opts.role,
+    p_selected: opts.selected,
+  });
+  if (error) throw error;
+}
+
 export async function setCaptainForGameweek(opts: {
   teamId: string;
   squadRowId: string;
   gameweekId: number;
   makeCaptain: boolean;
 }) {
-  const { teamId, squadRowId, gameweekId, makeCaptain } = opts;
-  if (makeCaptain) {
-    const { error } = await supabase
-      .from('captain_picks')
-      .upsert(
-        { fantasy_team_id: teamId, gameweek_id: gameweekId, squad_row_id: squadRowId },
-        { onConflict: 'fantasy_team_id,gameweek_id' },
-      );
-    if (error) throw error;
-  } else {
-    const { error } = await supabase
-      .from('captain_picks')
-      .delete()
-      .eq('fantasy_team_id', teamId)
-      .eq('gameweek_id', gameweekId)
-      .eq('squad_row_id', squadRowId);
-    if (error) throw error;
-  }
+  return setCaptaincyForGameweek({ ...opts, role: 'captain', selected: opts.makeCaptain });
+}
+
+export async function setViceCaptainForGameweek(opts: {
+  teamId: string;
+  squadRowId: string;
+  gameweekId: number;
+  makeViceCaptain: boolean;
+}) {
+  return setCaptaincyForGameweek({ ...opts, role: 'vice', selected: opts.makeViceCaptain });
 }
 
 /**

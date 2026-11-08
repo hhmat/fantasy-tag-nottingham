@@ -103,6 +103,7 @@ export interface SquadPlayer {
   id: string;             // fantasy_team_players row id
   player_id: string;
   is_captain: boolean;
+  is_vice_captain: boolean;
   is_active: boolean;
   purchase_price: number;
   added_gameweek: number;
