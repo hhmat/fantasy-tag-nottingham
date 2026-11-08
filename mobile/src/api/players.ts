@@ -1,5 +1,6 @@
 // Players & teams API
 import { supabase } from '@/lib/supabase';
+import { computePoints } from '@/lib/scoring';
 import type { Player, PlayerSeasonStats, PriceChange, Team } from '@/types';
 
 export async function getTeams(): Promise<Team[]> {
@@ -61,6 +62,35 @@ export async function getPlayerMatchLog(playerId: string) {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
+}
+
+/**
+ * Recent form: player_id → point totals for the given gameweeks
+ * (oldest → newest). Points computed with the same table as the DB.
+ */
+export async function getRecentForm(gameweekIds: number[]): Promise<Record<string, number[]>> {
+  if (!gameweekIds.length) return {};
+  const { data, error } = await supabase
+    .from('player_match_stats')
+    .select('player_id, tries, assists, conversions, player_of_match, win, attended, fixtures!inner(gameweek_id)')
+    .in('fixtures.gameweek_id', gameweekIds);
+  if (error) throw error;
+
+  const out: Record<string, number[]> = {};
+  for (const row of data ?? []) {
+    const pts = computePoints(row);
+    (out[row.player_id] ??= []).push(pts);
+  }
+  return out;
+}
+
+/** Ownership % per player (aggregate RPC — squads themselves stay private). */
+export async function getOwnership(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.rpc('player_ownership');
+  if (error) throw error;
+  const out: Record<string, number> = {};
+  for (const r of data ?? []) out[r.player_id] = Number(r.pct);
+  return out;
 }
 
 // ---- Admin ----

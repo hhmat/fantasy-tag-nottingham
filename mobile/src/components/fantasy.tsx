@@ -119,6 +119,27 @@ export function ArmbandIcon({ kind }: { kind: 'captain' | 'pom' }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// BudgetBar — squad spend vs budget as a progress bar. Amber when > 95%.
+// ---------------------------------------------------------------------------
+export function BudgetBar({ spend, budget }: { spend: number; budget: number }) {
+  const pct = Math.max(0, Math.min(1, spend / budget));
+  const tight = pct > 0.95;
+  return (
+    <View
+      style={styles.budgetTrack}
+      accessibilityLabel={`£${spend.toFixed(1)}m spent of £${budget.toFixed(1)}m budget`}
+    >
+      <View
+        style={[
+          styles.budgetFill,
+          { width: `${pct * 100}%`, backgroundColor: tight ? colors.warn : colors.accent },
+        ]}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   chip: {
     borderRadius: radius.full,
@@ -142,4 +163,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   armbandText: { fontSize: 13, fontWeight: '800', color: '#0B3D2E' },
+  budgetTrack: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.cardAlt,
+    overflow: 'hidden',
+  },
+  budgetFill: { height: '100%', borderRadius: 5 },
 });
