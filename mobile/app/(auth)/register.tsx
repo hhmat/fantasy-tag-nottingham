@@ -1,12 +1,13 @@
 // Register — email sign-up (+ Google via the login screen).
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { signUpWithEmail } from '@/api/auth';
 import { Button, Input, Screen } from '@/components/ui';
 import { colors, font, spacing } from '@/theme';
 
 export default function RegisterScreen() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,8 +19,13 @@ export default function RegisterScreen() {
     }
     setBusy(true);
     try {
-      await signUpWithEmail(email.trim(), password, name.trim());
-      Alert.alert('Welcome!', 'Check your inbox to confirm your email, then sign in.');
+      const data = await signUpWithEmail(email.trim(), password, name.trim());
+      if (data.session) {
+        // Email confirmation off — signed in already, start onboarding.
+        router.replace('/onboarding');
+      } else {
+        Alert.alert('Welcome!', 'Check your inbox to confirm your email, then sign in.');
+      }
     } catch (e: any) {
       Alert.alert('Registration failed', e.message);
     } finally {

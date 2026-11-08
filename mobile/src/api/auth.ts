@@ -24,12 +24,15 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 export async function signUpWithEmail(email: string, password: string, displayName: string) {
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { data: { display_name: displayName } },
   });
   if (error) throw error;
+  // data.session is present only when email confirmation is disabled —
+  // the caller uses it to route straight into onboarding.
+  return data;
 }
 
 export async function signInWithGoogle() {
@@ -78,5 +81,14 @@ export async function getProfile(userId: string): Promise<Profile> {
 
 export async function resetPassword(email: string) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+}
+
+/** Persist onboarding progress (0–3) or completion (null). */
+export async function setOnboardingStep(userId: string, step: number | null) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ onboarding_step: step })
+    .eq('id', userId);
   if (error) throw error;
 }

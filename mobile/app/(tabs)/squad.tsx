@@ -27,7 +27,7 @@ import type { SquadPlayer } from '@/types';
 const POSITION_GROUPS = ['Forward', 'Back', 'Utility'] as const;
 
 export default function SquadScreen() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
   const [newName, setNewName] = useState('');
@@ -178,6 +178,17 @@ export default function SquadScreen() {
             <Text style={font.muted}>{formatMoney(Math.max(0, remaining))} bank</Text>
           </View>
 
+          {/* Onboarding banner (until setup complete) */}
+          {profile?.onboarding_step != null ? (
+            <Pressable onPress={() => router.push('/onboarding')} accessibilityRole="button">
+              <Card style={styles.onboardCard}>
+                <Text style={[font.h3, { color: colors.accent }]}>
+                  Finish setup — {4 - profile.onboarding_step} step{profile.onboarding_step === 3 ? '' : 's'} left →
+                </Text>
+              </Card>
+            </Pressable>
+          ) : null}
+
           {/* Lock / transfers status */}
           {gameweek ? (
             <Card style={styles.lockCard}>
@@ -250,6 +261,7 @@ const styles = StyleSheet.create({
     gap: spacing(2),
   },
   lockCard: { marginTop: spacing(3), paddingVertical: spacing(3) },
+  onboardCard: { marginTop: spacing(3), borderColor: colors.accent },
   lockRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(3) },
   groupTitle: {
     ...font.tiny,

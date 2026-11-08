@@ -84,6 +84,8 @@ export interface Profile {
   is_admin: boolean;
   expo_push_token: string | null;
   avatar_url: string | null;
+  /** 0–3 while onboarding is in progress, null once done. */
+  onboarding_step?: number | null;
 }
 
 export interface FantasyTeam {
